@@ -1,0 +1,1 @@
+- [Project Kickoff](project_kickoff.md) — SaaS multi-tenant dashboard for KPIs, goals, gamification; MVP 5 days

@@ -17,6 +17,7 @@ import {
   Megaphone,
   ShoppingCart,
   FileText,
+  CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -35,7 +36,7 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    label: "Configuracao",
+    label: "Configuração",
     icon: Settings,
     items: [
       { label: "Unidades", href: "/config/units", icon: Building2 },
@@ -43,6 +44,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Equipes", href: "/config/teams", icon: Users },
       { label: "Vendedores", href: "/config/sellers", icon: UserCheck },
       { label: "KPIs", href: "/config/kpis", icon: BarChart3 },
+      { label: "Frequência", href: "/config/entry-schedules", icon: CalendarClock },
     ],
   },
   {
@@ -53,11 +55,11 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Historico",
+    label: "Histórico",
     icon: Clock,
     items: [
       { label: "Vendas", href: "/history/sales", icon: ShoppingCart },
-      { label: "Lancamentos", href: "/history/entries", icon: FileText },
+      { label: "Lançamentos", href: "/history/entries", icon: FileText },
     ],
   },
 ];

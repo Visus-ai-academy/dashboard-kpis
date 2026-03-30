@@ -1,21 +1,21 @@
 import { z } from "zod";
 
 export const entryCreateSchema = z.object({
-  kpiId: z.string().uuid("ID do KPI invalido"),
-  sellerId: z.string().uuid("ID do vendedor invalido"),
+  kpiId: z.string().min(1, "ID do KPI é obrigatório"),
+  sellerId: z.string().min(1, "ID do vendedor é obrigatório"),
   value: z.number().min(0, "Valor deve ser maior ou igual a 0"),
   entryDate: z.string().regex(
     /^\d{4}-\d{2}-\d{2}$/,
     "Data deve estar no formato ISO (YYYY-MM-DD)"
   ),
-  notes: z.string().max(500, "Observacoes devem ter no maximo 500 caracteres").optional(),
+  notes: z.string().max(500, "Observações devem ter no máximo 500 caracteres").optional(),
 });
 
 export const entryBatchCreateSchema = z.array(
   z.object({
-    kpiId: z.string().uuid("ID do KPI invalido"),
+    kpiId: z.string().min(1, "ID do KPI é obrigatório"),
     value: z.number().min(0, "Valor deve ser maior ou igual a 0"),
-    notes: z.string().max(500, "Observacoes devem ter no maximo 500 caracteres").optional(),
+    notes: z.string().max(500, "Observações devem ter no máximo 500 caracteres").optional(),
   })
 );
 

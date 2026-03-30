@@ -1,1 +1,2 @@
 - [Project Kickoff](project_kickoff.md) — SaaS multi-tenant dashboard for KPIs, goals, gamification; MVP 5 days
+- [Base UI Select null guard](feedback_baseui_select.md) — onValueChange passes string|null, must guard against null

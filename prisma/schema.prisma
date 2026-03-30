@@ -1,0 +1,432 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// AUTENTICAÇÃO & MULTI-TENANT
+// ============================================================
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?  @map("logo_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users          User[]
+  units          Unit[]
+  sectors        Sector[]
+  teams          Team[]
+  sellers        Seller[]
+  kpis           Kpi[]
+  entries        Entry[]
+  entrySchedules EntrySchedule[]
+  nonWorkingDays NonWorkingDay[]
+  campaigns      Campaign[]
+  sales          Sale[]
+
+  @@map("companies")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  companyId    String   @map("company_id")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole @default(MANAGER)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+// ============================================================
+// ESTRUTURA ORGANIZACIONAL
+// ============================================================
+
+model Unit {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sectors Sector[]
+
+  @@index([companyId])
+  @@map("units")
+}
+
+model Sector {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  unitId    String   @map("unit_id")
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit       Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  teams      Team[]
+  kpiSectors KpiSector[]
+
+  @@index([companyId])
+  @@index([unitId])
+  @@map("sectors")
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  sectorId  String   @map("sector_id")
+  companyId String   @map("company_id")
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sector  Sector   @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sellers Seller[]
+
+  @@index([companyId])
+  @@index([sectorId])
+  @@map("teams")
+}
+
+model Seller {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  teamId      String?  @map("team_id")
+  name        String
+  email       String?
+  phone       String?
+  accessCode  String   @unique @map("access_code")
+  accessToken String   @unique @default(uuid()) @map("access_token")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  company              Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  team                 Team?                 @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  kpiSellers           KpiSeller[]
+  monthlyTargets       MonthlyTarget[]
+  entries              Entry[]
+  sales                Sale[]
+  campaignParticipants CampaignParticipant[]
+  sellerPoints         SellerPoints[]
+
+  @@index([companyId])
+  @@index([teamId])
+  @@map("sellers")
+}
+
+// ============================================================
+// KPIs & METAS
+// ============================================================
+
+model Kpi {
+  id           String      @id @default(uuid())
+  companyId    String      @map("company_id")
+  name         String
+  type         KpiType     @default(NUMERIC)
+  periodicity  Periodicity @default(DAILY)
+  targetValue  Decimal     @default(0) @map("target_value")
+  isIndividual Boolean     @default(true) @map("is_individual")
+  isRequired   Boolean     @default(true) @map("is_required")
+  isPrimary    Boolean     @default(false) @map("is_primary")
+  scope        KpiScope    @default(COMPANY)
+  chartType    ChartType   @default(LINE) @map("chart_type")
+  displayOrder Int         @default(0) @map("display_order")
+  isActive     Boolean     @default(true) @map("is_active")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  kpiSectors     KpiSector[]
+  kpiSellers     KpiSeller[]
+  monthlyTargets MonthlyTarget[]
+  entries        Entry[]
+  entrySchedules EntrySchedule[]
+  scoringRules   ScoringRule[]
+
+  @@index([companyId])
+  @@map("kpis")
+}
+
+enum KpiType {
+  NUMERIC
+  MONETARY
+  PERCENTAGE
+}
+
+enum Periodicity {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum KpiScope {
+  COMPANY
+  SPECIFIC_SELLERS
+}
+
+enum ChartType {
+  LINE
+  BAR
+  AREA
+  PIE
+  RADIAL
+  STACKED_BAR
+}
+
+model KpiSector {
+  id       String @id @default(uuid())
+  kpiId    String @map("kpi_id")
+  sectorId String @map("sector_id")
+
+  kpi    Kpi    @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  sector Sector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
+  @@unique([kpiId, sectorId])
+  @@map("kpi_sectors")
+}
+
+model KpiSeller {
+  id           String   @id @default(uuid())
+  kpiId        String   @map("kpi_id")
+  sellerId     String   @map("seller_id")
+  customTarget Decimal? @map("custom_target")
+
+  kpi    Kpi    @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([kpiId, sellerId])
+  @@map("kpi_sellers")
+}
+
+model MonthlyTarget {
+  id          String  @id @default(uuid())
+  kpiId       String  @map("kpi_id")
+  sellerId    String? @map("seller_id")
+  month       Int
+  year        Int
+  targetValue Decimal @map("target_value")
+
+  kpi    Kpi     @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  seller Seller? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+
+  @@unique([kpiId, sellerId, month, year])
+  @@index([kpiId, month, year])
+  @@map("monthly_targets")
+}
+
+// ============================================================
+// LANÇAMENTOS
+// ============================================================
+
+model Entry {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  kpiId     String   @map("kpi_id")
+  sellerId  String   @map("seller_id")
+  value     Decimal
+  entryDate DateTime @map("entry_date") @db.Date
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  kpi     Kpi     @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  seller  Seller  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, kpiId, sellerId, entryDate])
+  @@index([companyId, entryDate])
+  @@map("entries")
+}
+
+model EntrySchedule {
+  id              String      @id @default(uuid())
+  companyId       String      @map("company_id")
+  kpiId           String      @map("kpi_id")
+  frequency       Periodicity
+  deadlineTime    String?     @map("deadline_time")
+  reminderEnabled Boolean     @default(false) @map("reminder_enabled")
+  createdAt       DateTime    @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  kpi     Kpi     @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+
+  @@map("entry_schedules")
+}
+
+model NonWorkingDay {
+  id              String   @id @default(uuid())
+  companyId       String   @map("company_id")
+  date            DateTime @db.Date
+  description     String?
+  includeSaturday Boolean  @default(false) @map("include_saturday")
+  includeSunday   Boolean  @default(false) @map("include_sunday")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date])
+  @@map("non_working_days")
+}
+
+// ============================================================
+// GAMIFICAÇÃO / ENDOMARKETING
+// ============================================================
+
+model Campaign {
+  id                  String     @id @default(uuid())
+  companyId           String     @map("company_id")
+  name                String
+  description         String?
+  isActive            Boolean    @default(true) @map("is_active")
+  gamificationEnabled Boolean    @default(true) @map("gamification_enabled")
+  seasonType          SeasonType @default(MONTHLY) @map("season_type")
+  resetPointsOnEnd    Boolean    @default(false) @map("reset_points_on_end")
+  teamMode            Boolean    @default(false) @map("team_mode")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  company      Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  scoringRules ScoringRule[]
+  seasons      Season[]
+  participants CampaignParticipant[]
+  levels       GamificationLevel[]
+  sellerPoints SellerPoints[]
+
+  @@index([companyId])
+  @@map("campaigns")
+}
+
+enum SeasonType {
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+model ScoringRule {
+  id               String   @id @default(uuid())
+  campaignId       String   @map("campaign_id")
+  name             String
+  description      String?
+  ruleType         RuleType @default(POINTS_PER_UNIT) @map("rule_type")
+  kpiId            String?  @map("kpi_id")
+  pointsPerUnit    Decimal  @default(0) @map("points_per_unit")
+  maxPointsPerDay  Decimal  @default(0) @map("max_points_per_day")
+  maxPointsPerWeek Decimal  @default(0) @map("max_points_per_week")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  kpi      Kpi?     @relation(fields: [kpiId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@map("scoring_rules")
+}
+
+enum RuleType {
+  POINTS_PER_UNIT
+  BONUS_THRESHOLD
+  MULTIPLIER
+}
+
+model Season {
+  id         String   @id @default(uuid())
+  campaignId String   @map("campaign_id")
+  name       String
+  startDate  DateTime @map("start_date") @db.Date
+  endDate    DateTime @map("end_date") @db.Date
+  isActive   Boolean  @default(false) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  campaign     Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sellerPoints SellerPoints[]
+
+  @@index([campaignId])
+  @@map("seasons")
+}
+
+model CampaignParticipant {
+  id         String   @id @default(uuid())
+  campaignId String   @map("campaign_id")
+  sellerId   String   @map("seller_id")
+  joinedAt   DateTime @default(now()) @map("joined_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  seller   Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, sellerId])
+  @@map("campaign_participants")
+}
+
+model GamificationLevel {
+  id           String  @id @default(uuid())
+  campaignId   String  @map("campaign_id")
+  name         String
+  minPoints    Decimal @map("min_points")
+  badgeEmoji   String? @map("badge_emoji")
+  displayOrder Int     @default(0) @map("display_order")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("gamification_levels")
+}
+
+model SellerPoints {
+  id          String   @id @default(uuid())
+  campaignId  String   @map("campaign_id")
+  seasonId    String   @map("season_id")
+  sellerId    String   @map("seller_id")
+  totalPoints Decimal  @default(0) @map("total_points")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  season   Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  seller   Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, seasonId, sellerId])
+  @@map("seller_points")
+}
+
+// ============================================================
+// VENDAS
+// ============================================================
+
+model Sale {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  sellerId  String   @map("seller_id")
+  amount    Decimal
+  saleDate  DateTime @map("sale_date") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  seller  Seller  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, sellerId, saleDate])
+  @@map("sales")
+}

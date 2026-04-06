@@ -103,7 +103,7 @@ export function Header({
             <Building2 className="size-3.5 text-muted-foreground shrink-0" />
             <Select
               value={selectedUnitId || "__all__"}
-              onValueChange={handleUnitChange}
+              onValueChange={(v) => v && handleUnitChange(v)}
             >
               <SelectTrigger className="h-7 w-[180px] text-xs">
                 <span className="flex flex-1 text-left truncate">

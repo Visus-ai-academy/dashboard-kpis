@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils/prisma-helpers";
+import { getSellerIdsByUnit } from "@/lib/queries/unit-sellers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const sellerId = searchParams.get("sellerId");
+    const unitId = searchParams.get("unitId");
 
     if (!startDate || !endDate) {
       return NextResponse.json(
@@ -30,6 +32,16 @@ export async function GET(request: NextRequest) {
     const end = new Date(endDate);
     const month = end.getMonth() + 1;
     const year = end.getFullYear();
+
+    // Resolve unit filter to seller IDs
+    const unitSellerIds = await getSellerIdsByUnit(session.user.companyId, unitId);
+
+    // Build seller filter
+    const sellerFilter = sellerId
+      ? { sellerId }
+      : unitSellerIds
+        ? { sellerId: { in: unitSellerIds } }
+        : {};
 
     // Get all active KPIs
     const kpis = await prisma.kpi.findMany({
@@ -45,7 +57,7 @@ export async function GET(request: NextRequest) {
       where: {
         companyId: session.user.companyId,
         entryDate: { gte: start, lte: end },
-        ...(sellerId ? { sellerId } : {}),
+        ...sellerFilter,
       },
     });
 

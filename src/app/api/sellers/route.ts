@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sellerCreateSchema } from "@/lib/validators/seller";
 import { generateAccessCode } from "@/lib/utils/access-code";
 import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,9 +19,13 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl;
     const teamId = searchParams.get("teamId");
+    const unitId = searchParams.get("unitId");
 
     const where: Record<string, unknown> = { companyId: session.user.companyId };
     if (teamId) where.teamId = teamId;
+    if (unitId) {
+      where.team = { sector: { unitId } };
+    }
 
     const sellers = await prisma.seller.findMany({
       where,
@@ -79,6 +84,9 @@ export async function POST(request: NextRequest) {
 
     const accessCode = generateAccessCode();
     const accessToken = randomUUID();
+    const passwordHash = (body.password && typeof body.password === "string")
+      ? await bcrypt.hash(body.password, 10)
+      : null;
 
     const seller = await prisma.seller.create({
       data: {
@@ -87,6 +95,7 @@ export async function POST(request: NextRequest) {
         email: parsed.data.email,
         phone: parsed.data.phone,
         teamId: parsed.data.teamId,
+        passwordHash,
         accessCode,
         accessToken,
       },

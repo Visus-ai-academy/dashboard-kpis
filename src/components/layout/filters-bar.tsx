@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ export function FiltersBar() {
 
   const [kpis, setKpis] = useState<Kpi[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const unitId = useUnitFilter();
 
   // Read initial values from URL
   const currentMonth = getMonthRange(0);
@@ -65,9 +67,12 @@ export function FiltersBar() {
   useEffect(() => {
     async function fetchOptions() {
       try {
+        const sellersUrl = unitId
+          ? `/api/sellers?unitId=${unitId}`
+          : "/api/sellers";
         const [kpisRes, sellersRes] = await Promise.all([
           fetch("/api/kpis"),
-          fetch("/api/sellers"),
+          fetch(sellersUrl),
         ]);
         const [kpisJson, sellersJson] = await Promise.all([
           kpisRes.json(),
@@ -80,7 +85,7 @@ export function FiltersBar() {
       }
     }
     fetchOptions();
-  }, []);
+  }, [unitId]);
 
   const updateParams = useCallback(
     (updates: Record<string, string>) => {
@@ -123,51 +128,52 @@ export function FiltersBar() {
 
   return (
     <div className="rounded-lg border bg-card p-4">
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-4">
         {/* Date Range */}
-        <div className="flex items-end gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Data Início</Label>
-            <Input
-              type="date"
-              className="h-8 w-[140px] text-sm"
-              value={localStart}
-              onChange={(e) => setLocalStart(e.target.value)}
-              onBlur={handleDateBlur}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Data Fim</Label>
-            <Input
-              type="date"
-              className="h-8 w-[140px] text-sm"
-              value={localEnd}
-              onChange={(e) => setLocalEnd(e.target.value)}
-              onBlur={handleDateBlur}
-            />
-          </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Data Início</Label>
+          <Input
+            type="date"
+            className="h-8 w-[140px] text-sm"
+            value={localStart}
+            onChange={(e) => setLocalStart(e.target.value)}
+            onBlur={handleDateBlur}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Data Fim</Label>
+          <Input
+            type="date"
+            className="h-8 w-[140px] text-sm"
+            value={localEnd}
+            onChange={(e) => setLocalEnd(e.target.value)}
+            onBlur={handleDateBlur}
+          />
         </div>
 
         {/* Quick date buttons */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={handleCurrentMonth}
-          >
-            <CalendarDays className="mr-1 size-3" />
-            Mês Atual
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={handlePreviousMonth}
-          >
-            <CalendarDays className="mr-1 size-3" />
-            Mês Anterior
-          </Button>
+        <div className="space-y-1">
+          <Label className="text-xs text-transparent select-none">-</Label>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={handleCurrentMonth}
+            >
+              <CalendarDays className="mr-1 size-3" />
+              Mês Atual
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={handlePreviousMonth}
+            >
+              <CalendarDays className="mr-1 size-3" />
+              Mês Anterior
+            </Button>
+          </div>
         </div>
 
         {/* KPI Select */}

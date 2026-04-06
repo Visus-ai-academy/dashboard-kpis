@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const registered = searchParams.get("registered") === "true";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,18 +33,33 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      // Try admin login first
+      const adminResult = await signIn("admin-credentials", {
         email,
         password,
         redirect: false,
       });
 
-      if (result?.error) {
-        setError("Email ou senha incorretos");
-      } else {
+      if (!adminResult?.error) {
         router.push(callbackUrl);
         router.refresh();
+        return;
       }
+
+      // If admin fails, try seller login
+      const sellerResult = await signIn("seller-credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (!sellerResult?.error) {
+        router.push("/lancamento");
+        router.refresh();
+        return;
+      }
+
+      setError("E-mail ou senha incorretos");
     } catch {
       setError("Erro ao fazer login. Tente novamente.");
     } finally {
@@ -53,7 +70,14 @@ function LoginForm() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold">Visus Dashboard</CardTitle>
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-[#112622]">
+            <span className="text-sm font-bold text-white">V</span>
+          </div>
+        </div>
+        <CardTitle className="text-2xl font-bold" style={{ color: "#112622" }}>
+          Visus Dashboard
+        </CardTitle>
         <CardDescription>Entre com suas credenciais</CardDescription>
       </CardHeader>
       <CardContent>
@@ -85,6 +109,12 @@ function LoginForm() {
             />
           </div>
 
+          {registered && !error && (
+            <p className="text-sm text-center" style={{ color: "#34594F" }}>
+              Conta criada com sucesso! Faça login para continuar.
+            </p>
+          )}
+
           {error && (
             <p className="text-sm text-destructive text-center">{error}</p>
           )}
@@ -92,6 +122,17 @@ function LoginForm() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Entrando..." : "Entrar"}
           </Button>
+
+          <p className="text-sm text-center text-muted-foreground">
+            Não tem conta?{" "}
+            <Link
+              href="/register"
+              className="font-medium hover:underline"
+              style={{ color: "#34594F" }}
+            >
+              Registre-se
+            </Link>
+          </p>
         </form>
       </CardContent>
     </Card>

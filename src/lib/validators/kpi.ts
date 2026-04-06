@@ -18,6 +18,7 @@ export const kpiCreateSchema = z.object({
   chartType: z.enum(["LINE", "BAR", "AREA", "PIE", "RADIAL", "STACKED_BAR"], {
     message: "Tipo de gráfico é obrigatório",
   }),
+  unitId: z.string().optional().nullable(),
   sectorIds: z.array(z.string().uuid()).optional(),
   sellerIds: z.array(z.string().uuid()).optional(),
 });

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils/prisma-helpers";
+import { getSellerIdsByUnit } from "@/lib/queries/unit-sellers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +19,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
+    const unitId = searchParams.get("unitId");
+
     if (!startDate || !endDate) {
       return NextResponse.json(
         { success: false, error: { code: "VALIDATION_ERROR", message: "startDate e endDate sao obrigatorios" } },
@@ -28,17 +31,30 @@ export async function GET(request: NextRequest) {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Get all active sellers
+    // Resolve unit filter to seller IDs
+    const unitSellerIds = await getSellerIdsByUnit(session.user.companyId, unitId);
+
+    // Get all active sellers (filtered by unit if applicable)
     const sellers = await prisma.seller.findMany({
-      where: { companyId: session.user.companyId, isActive: true },
+      where: {
+        companyId: session.user.companyId,
+        isActive: true,
+        ...(unitSellerIds ? { id: { in: unitSellerIds } } : {}),
+      },
       orderBy: { name: "asc" },
     });
+
+    // Build seller filter
+    const sellerFilter = unitSellerIds
+      ? { sellerId: { in: unitSellerIds } }
+      : {};
 
     // Get sales for the period
     const sales = await prisma.sale.findMany({
       where: {
         companyId: session.user.companyId,
         saleDate: { gte: start, lte: end },
+        ...sellerFilter,
       },
     });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { toast } from "sonner";
 import {
   Plus,
@@ -8,7 +9,7 @@ import {
   Trash2,
   Copy,
   RefreshCw,
-  MoreHorizontal,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,8 @@ interface Seller {
 }
 
 export default function SellersPage() {
+  const unitIdFilter = useUnitFilter();
+
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,13 +80,15 @@ export default function SellersPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [teamId, setTeamId] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
+      const unitParam = unitIdFilter ? `?unitId=${unitIdFilter}` : "";
       const [sellersRes, teamsRes] = await Promise.all([
-        fetch("/api/sellers"),
-        fetch("/api/teams"),
+        fetch(`/api/sellers${unitParam}`),
+        fetch(`/api/teams${unitParam}`),
       ]);
       const [sellersJson, teamsJson] = await Promise.all([
         sellersRes.json(),
@@ -96,7 +101,7 @@ export default function SellersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [unitIdFilter]);
 
   useEffect(() => {
     fetchData();
@@ -107,6 +112,7 @@ export default function SellersPage() {
     setName("");
     setEmail("");
     setPhone("");
+    setPassword("");
     setTeamId("");
     setModalOpen(true);
   }
@@ -116,6 +122,7 @@ export default function SellersPage() {
     setName(seller.name);
     setEmail(seller.email ?? "");
     setPhone(seller.phone ?? "");
+    setPassword("");
     setTeamId(seller.teamId ?? "");
     setModalOpen(true);
   }
@@ -137,6 +144,7 @@ export default function SellersPage() {
       const payload: Record<string, unknown> = { name: name.trim() };
       if (email.trim()) payload.email = email.trim();
       if (phone.trim()) payload.phone = phone.trim();
+      if (password.trim()) payload.password = password.trim();
       if (teamId) payload.teamId = teamId;
 
       const res = await fetch(url, {
@@ -229,9 +237,9 @@ export default function SellersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Vendedores</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Usuários</h1>
           <p className="text-muted-foreground">
-            Gerencie os vendedores e seus acessos
+            Gerencie os usuários e seus acessos
           </p>
         </div>
         <Button onClick={openCreate}>
@@ -247,9 +255,9 @@ export default function SellersPage() {
               <TableHead>Nome</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Telefone</TableHead>
-              <TableHead>Codigo de Acesso</TableHead>
+              <TableHead>Código de Acesso</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-[80px]">Ações</TableHead>
+              <TableHead className="w-[180px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -293,35 +301,23 @@ export default function SellersPage() {
                     </button>
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={<Button variant="ghost" size="icon-xs" />}
-                      >
-                        <MoreHorizontal className="size-3.5" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => copyLaunchLink(seller)}>
-                          <Copy className="size-4" />
-                          Copiar link
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => regenerateCode(seller)}>
-                          <RefreshCw className="size-4" />
-                          Regenerar codigo
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openEdit(seller)}>
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => openDelete(seller)}
-                        >
-                          <Trash2 className="size-4" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon-xs" onClick={() => window.open(`/launch/${seller.accessToken}`, "_blank")} title="Abrir lançamento">
+                        <ExternalLink className="size-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon-xs" onClick={() => copyLaunchLink(seller)} title="Copiar link">
+                        <Copy className="size-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon-xs" onClick={() => regenerateCode(seller)} title="Regenerar código">
+                        <RefreshCw className="size-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon-xs" onClick={() => openEdit(seller)} title="Editar">
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon-xs" onClick={() => openDelete(seller)} title="Excluir">
+                        <Trash2 className="size-3.5 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -365,6 +361,18 @@ export default function SellersPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="(11) 99999-9999"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="seller-password">
+                {editing ? "Nova Senha (deixe vazio para manter)" : "Senha *"}
+              </Label>
+              <Input
+                id="seller-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={editing ? "••••••••" : "Senha do usuário"}
               />
             </div>
             <div className="space-y-2">

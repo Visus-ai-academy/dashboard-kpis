@@ -93,6 +93,7 @@ export default function UnitsPage() {
         toast.success(editing ? "Unidade atualizada" : "Unidade criada");
         setModalOpen(false);
         fetchUnits();
+        window.dispatchEvent(new Event("units-updated"));
       } else {
         toast.error(json.error?.message ?? "Erro ao salvar");
       }
@@ -110,10 +111,11 @@ export default function UnitsPage() {
       const res = await fetch(`/api/units/${deleting.id}`, { method: "DELETE" });
       const json = await res.json();
       if (json.success) {
-        toast.success("Unidade excluida");
+        toast.success("Unidade excluída");
         setDeleteDialogOpen(false);
         setDeleting(null);
         fetchUnits();
+        window.dispatchEvent(new Event("units-updated"));
       } else {
         toast.error(json.error?.message ?? "Erro ao excluir");
       }
@@ -135,6 +137,7 @@ export default function UnitsPage() {
       if (json.success) {
         toast.success(`Unidade ${unit.isActive ? "desativada" : "ativada"}`);
         fetchUnits();
+        window.dispatchEvent(new Event("units-updated"));
       }
     } catch {
       toast.error("Erro ao alterar status");

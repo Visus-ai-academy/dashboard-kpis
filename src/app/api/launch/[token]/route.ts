@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { entryBatchCreateSchema } from "@/lib/validators/entry";
 import { toNumber } from "@/lib/utils/prisma-helpers";
@@ -44,6 +46,8 @@ function getDateRange(periodicity: string) {
       return thisWeekRange();
     case "MONTHLY":
       return thisMonthRange();
+    case "NONE":
+      return null;
     default:
       return todayRange();
   }
@@ -55,17 +59,22 @@ function getDateRange(periodicity: string) {
 // ────────────────────────────────────────────────────────────
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
     const { token } = await params;
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get("email");
+    const accessCode = searchParams.get("accessCode");
 
     const seller = await prisma.seller.findUnique({
       where: { accessToken: token },
       select: {
         id: true,
         name: true,
+        email: true,
+        accessCode: true,
         companyId: true,
         isActive: true,
         team: { select: { name: true } },
@@ -79,8 +88,36 @@ export async function GET(
       );
     }
 
+    // Check if an admin is already logged in — skip auth
+    const session = await getServerSession(authOptions);
+    const isAdmin = session?.user?.role && session.user.role !== "SELLER";
+
+    // If no credentials provided and not admin, return only seller name (for login screen)
+    if (!email && !accessCode && !isAdmin) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          requiresAuth: true,
+          seller: { name: seller.name, teamName: seller.team?.name ?? null },
+        },
+      });
+    }
+
+    // Validate credentials (skip if admin is logged in)
+    if (
+      !isAdmin && (
+        !email || !accessCode ||
+        email.toLowerCase() !== (seller.email ?? "").toLowerCase() ||
+        accessCode.toUpperCase() !== seller.accessCode.toUpperCase()
+      )
+    ) {
+      return NextResponse.json(
+        { success: false, error: { code: "UNAUTHORIZED", message: "E-mail ou código de acesso inválido" } },
+        { status: 401 }
+      );
+    }
+
     // Get all active KPIs for the seller's company
-    // Either company-wide or specifically assigned to this seller
     const kpis = await prisma.kpi.findMany({
       where: {
         companyId: seller.companyId,
@@ -101,11 +138,32 @@ export async function GET(
       },
     });
 
+    // Fetch entry schedules to check for frequency overrides
+    const entrySchedules = await prisma.entrySchedule.findMany({
+      where: {
+        companyId: seller.companyId,
+        kpiId: { in: kpis.map((k) => k.id) },
+      },
+      select: { kpiId: true, frequency: true },
+    });
+    const scheduleMap = new Map(entrySchedules.map((s) => [s.kpiId, s.frequency]));
+
     // Check which KPIs have been filled for the current period
     const kpisWithStatus = await Promise.all(
       kpis.map(async (kpi) => {
-        const range = getDateRange(kpi.periodicity);
-        const existingEntry = await prisma.entry.findFirst({
+        const frequency = scheduleMap.get(kpi.id) ?? kpi.periodicity;
+        const range = getDateRange(frequency);
+
+        if (!range) {
+          return {
+            ...kpi,
+            targetValue: toNumber(kpi.targetValue),
+            filled: false,
+            existingValue: null,
+          };
+        }
+
+        const existingEntries = await prisma.entry.findMany({
           where: {
             kpiId: kpi.id,
             sellerId: seller.id,
@@ -117,11 +175,21 @@ export async function GET(
           select: { id: true, value: true },
         });
 
+        const hasEntries = existingEntries.length > 0;
+        let existingValue: number | null = null;
+        if (hasEntries) {
+          if (kpi.type === "MONETARY") {
+            existingValue = existingEntries.reduce((sum, e) => sum + toNumber(e.value), 0);
+          } else {
+            existingValue = existingEntries.reduce((sum, e) => sum + toNumber(e.value), 0);
+          }
+        }
+
         return {
           ...kpi,
           targetValue: toNumber(kpi.targetValue),
-          filled: !!existingEntry,
-          existingValue: existingEntry ? toNumber(existingEntry.value) : null,
+          filled: hasEntries,
+          existingValue,
         };
       })
     );
@@ -149,7 +217,7 @@ export async function GET(
 
 // ────────────────────────────────────────────────────────────
 // POST /api/launch/[token]
-// Submit entries for the seller
+// Submit flat entries: [{ kpiId, value, notes? }]
 // ────────────────────────────────────────────────────────────
 
 export async function POST(
@@ -187,10 +255,10 @@ export async function POST(
     const todayISO = today.toISOString().split("T")[0];
 
     // Validate KPIs exist and belong to the company
-    const kpiIds = entries.map((e) => e.kpiId);
+    const kpiIds = [...new Set(entries.map((e) => e.kpiId))];
     const kpis = await prisma.kpi.findMany({
       where: { id: { in: kpiIds }, companyId: seller.companyId, isActive: true },
-      select: { id: true, periodicity: true },
+      select: { id: true, periodicity: true, type: true },
     });
 
     const kpiMap = new Map(kpis.map((k) => [k.id, k]));
@@ -204,20 +272,32 @@ export async function POST(
       }
     }
 
-    // Check duplicates: same kpi + seller + current period
+    // Fetch entry schedules for duplicate check
+    const postSchedules = await prisma.entrySchedule.findMany({
+      where: {
+        companyId: seller.companyId,
+        kpiId: { in: kpiIds },
+      },
+      select: { kpiId: true, frequency: true },
+    });
+    const postScheduleMap = new Map(postSchedules.map((s) => [s.kpiId, s.frequency]));
+
+    // Check duplicates per KPI
     const duplicateErrors: string[] = [];
-    for (const entry of entries) {
-      const kpi = kpiMap.get(entry.kpiId)!;
-      const range = getDateRange(kpi.periodicity);
+    for (const kpiId of kpiIds) {
+      const kpi = kpiMap.get(kpiId)!;
+      const frequency = postScheduleMap.get(kpiId) ?? kpi.periodicity;
+      const range = getDateRange(frequency);
+      if (!range) continue;
       const existing = await prisma.entry.findFirst({
         where: {
-          kpiId: entry.kpiId,
+          kpiId,
           sellerId: seller.id,
           entryDate: { gte: range.start, lte: range.end },
         },
       });
       if (existing) {
-        duplicateErrors.push(entry.kpiId);
+        duplicateErrors.push(kpiId);
       }
     }
 
@@ -228,24 +308,45 @@ export async function POST(
       );
     }
 
-    // Create entries in a transaction and calculate points
+    // Create all entries in a transaction and calculate points
     const createdEntries = await prisma.$transaction(async (tx) => {
       const created = [];
-      for (const entry of entries) {
-        const newEntry = await tx.entry.create({
-          data: {
-            companyId: seller.companyId,
-            kpiId: entry.kpiId,
-            sellerId: seller.id,
-            value: entry.value,
-            entryDate: new Date(todayISO),
-            notes: entry.notes,
-          },
-        });
-        created.push(newEntry);
 
-        // Feature 4.4: Calculate points on entry
-        await calculatePoints(tx, seller.id, entry.kpiId, entry.value, seller.companyId);
+      // Group entries by kpiId for points calculation
+      const groupedByKpi = new Map<string, typeof entries>();
+      for (const entry of entries) {
+        const group = groupedByKpi.get(entry.kpiId) ?? [];
+        group.push(entry);
+        groupedByKpi.set(entry.kpiId, group);
+      }
+
+      for (const [kpiId, kpiEntries] of groupedByKpi) {
+        const kpi = kpiMap.get(kpiId)!;
+        let totalValueForPoints = 0;
+
+        for (const entry of kpiEntries) {
+          const newEntry = await tx.entry.create({
+            data: {
+              companyId: seller.companyId,
+              kpiId,
+              sellerId: seller.id,
+              clientId: entry.clientId || null,
+              value: entry.value,
+              entryDate: new Date(todayISO),
+              notes: entry.notes ?? null,
+            },
+          });
+          created.push(newEntry);
+
+          if (kpi.type === "MONETARY") {
+            totalValueForPoints += entry.value;
+          } else {
+            totalValueForPoints += entry.value;
+          }
+        }
+
+        // Calculate points once per KPI group with total value
+        await calculatePoints(tx, seller.id, kpiId, totalValueForPoints, seller.companyId);
       }
       return created;
     });
@@ -270,7 +371,7 @@ export async function POST(
 }
 
 // ────────────────────────────────────────────────────────────
-// Feature 4.4: Points calculation on entry
+// Points calculation on entry
 // ────────────────────────────────────────────────────────────
 
 async function calculatePoints(
@@ -280,7 +381,6 @@ async function calculatePoints(
   value: number,
   companyId: string
 ) {
-  // Find active campaigns with scoring rules linked to this KPI
   const scoringRules = await tx.scoringRule.findMany({
     where: {
       kpiId,
@@ -311,41 +411,31 @@ async function calculatePoints(
     const maxPerDay = toNumber(rule.maxPointsPerDay);
     const maxPerWeek = toNumber(rule.maxPointsPerWeek);
 
-    // Check daily cap
     if (maxPerDay > 0) {
-      const { start: dayStart, end: dayEnd } = todayRange();
-      const todayEntries = await tx.entry.findMany({
-        where: {
-          sellerId,
-          kpiId,
-          entryDate: { gte: dayStart, lte: dayEnd },
-        },
-        select: { value: true },
-      });
-      const todayTotal = todayEntries.reduce((sum, e) => sum + toNumber(e.value), 0) * toNumber(rule.pointsPerUnit);
-      const remainingDaily = Math.max(0, maxPerDay - todayTotal + points); // include current
-      points = Math.min(points, remainingDaily);
+      points = Math.min(points, maxPerDay);
     }
 
-    // Check weekly cap
     if (maxPerWeek > 0) {
-      const { start: weekStart, end: weekEnd } = thisWeekRange();
-      const weekEntries = await tx.entry.findMany({
-        where: {
+      points = Math.min(points, maxPerWeek);
+    }
+
+    const existingPoints = await tx.sellerPoints.findUnique({
+      where: {
+        campaignId_seasonId_sellerId: {
+          campaignId: rule.campaignId,
+          seasonId: activeSeason.id,
           sellerId,
-          kpiId,
-          entryDate: { gte: weekStart, lte: weekEnd },
         },
-        select: { value: true },
-      });
-      const weekTotal = weekEntries.reduce((sum, e) => sum + toNumber(e.value), 0) * toNumber(rule.pointsPerUnit);
-      const remainingWeekly = Math.max(0, maxPerWeek - weekTotal + points);
-      points = Math.min(points, remainingWeekly);
+      },
+      select: { totalPoints: true },
+    });
+    const currentTotal = existingPoints ? toNumber(existingPoints.totalPoints) : 0;
+    if (maxPerWeek > 0 && currentTotal + points > maxPerWeek) {
+      points = Math.max(0, maxPerWeek - currentTotal);
     }
 
     if (points <= 0) continue;
 
-    // Upsert seller points
     const existing = await tx.sellerPoints.findUnique({
       where: {
         campaignId_seasonId_sellerId: {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { KpiDetailCard } from "./kpi-detail-card";
@@ -24,6 +25,7 @@ export function KpiCardsGrid() {
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
   const sellerId = searchParams.get("sellerId");
+  const unitId = useUnitFilter();
 
   useEffect(() => {
     async function fetchData() {
@@ -38,6 +40,7 @@ export function KpiCardsGrid() {
           endDate: endDate ?? defaultEnd,
         });
         if (sellerId) params.set("sellerId", sellerId);
+        if (unitId) params.set("unitId", unitId);
 
         const res = await fetch(`/api/dashboard/goal-achievement?${params}`);
         const json = await res.json();
@@ -49,7 +52,7 @@ export function KpiCardsGrid() {
       }
     }
     fetchData();
-  }, [startDate, endDate, sellerId]);
+  }, [startDate, endDate, sellerId, unitId]);
 
   if (loading) {
     return (
@@ -72,16 +75,17 @@ export function KpiCardsGrid() {
   if (goals.length === 0) return null;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="flex flex-wrap gap-4">
       {goals.map((goal) => (
-        <KpiDetailCard
-          key={goal.kpiId}
-          kpiName={goal.kpiName}
-          kpiType={goal.kpiType}
-          achieved={goal.achieved}
-          target={goal.target}
-          percentage={goal.percentage}
-        />
+        <div key={goal.kpiId} className="flex-1 min-w-[250px]">
+          <KpiDetailCard
+            kpiName={goal.kpiName}
+            kpiType={goal.kpiType}
+            achieved={goal.achieved}
+            target={goal.target}
+            percentage={goal.percentage}
+          />
+        </div>
       ))}
     </div>
   );

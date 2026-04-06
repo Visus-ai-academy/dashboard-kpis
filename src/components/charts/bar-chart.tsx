@@ -74,7 +74,7 @@ export function KpiBarChart({ data, kpiType }: KpiBarChartProps) {
         />
         <Bar
           dataKey="value"
-          fill="hsl(var(--primary))"
+          fill="#34594F"
           radius={[4, 4, 0, 0]}
         />
       </RechartsBarChart>

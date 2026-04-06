@@ -3,10 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils/prisma-helpers";
-import {
-  getBusinessDaysInMonth,
-  getRemainingBusinessDays,
-} from "@/lib/utils/dates";
+import { getRemainingBusinessDaysFromDB } from "@/lib/queries/projections";
+import { getSellerIdsByUnit } from "@/lib/queries/unit-sellers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,8 +19,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const kpiId = searchParams.get("kpiId");
     const sellerId = searchParams.get("sellerId");
-    const includeSaturday = searchParams.get("includeSaturday") === "true";
-    const includeSunday = searchParams.get("includeSunday") === "true";
+    const unitId = searchParams.get("unitId");
 
     // Default to current month
     const now = new Date();
@@ -48,18 +45,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get non-working days for this company in the given month
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 0);
 
-    const nonWorkingDays = await prisma.nonWorkingDay.findMany({
-      where: {
-        companyId: session.user.companyId,
-        date: { gte: monthStart, lte: monthEnd },
-      },
-    });
+    // Use refined projection that queries NonWorkingDays from DB
+    const projection = await getRemainingBusinessDaysFromDB(
+      session.user.companyId, month, year
+    );
 
-    const nonWorkingDates = nonWorkingDays.map((d) => new Date(d.date));
+    const { totalBusinessDays, remainingBusinessDays } = projection;
+
+    // Resolve unit filter to seller IDs
+    const unitSellerIds = await getSellerIdsByUnit(session.user.companyId, unitId);
+
+    // Build seller filter
+    const sellerFilter = sellerId
+      ? { sellerId }
+      : unitSellerIds
+        ? { sellerId: { in: unitSellerIds } }
+        : {};
 
     // Get the month target: first from monthlyTargets, fallback to kpi.targetValue
     const monthlyTarget = await prisma.monthlyTarget.findFirst({
@@ -80,7 +84,7 @@ export async function GET(request: NextRequest) {
       companyId: session.user.companyId,
       kpiId: kpi.id,
       entryDate: { gte: monthStart, lte: monthEnd },
-      ...(sellerId ? { sellerId } : {}),
+      ...sellerFilter,
     };
 
     const entriesAgg = await prisma.entry.aggregate({
@@ -90,14 +94,6 @@ export async function GET(request: NextRequest) {
 
     const achieved = toNumber(entriesAgg._sum.value);
     const remaining = Math.max(0, target - achieved);
-
-    // Business days
-    const totalBusinessDays = getBusinessDaysInMonth(
-      month, year, nonWorkingDates, includeSaturday, includeSunday
-    );
-    const remainingBusinessDays = getRemainingBusinessDays(
-      month, year, nonWorkingDates, includeSaturday, includeSunday
-    );
 
     const dailyTarget = remainingBusinessDays > 0
       ? remaining / remainingBusinessDays

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,7 @@ export function SellerComparison() {
 
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
+  const unitId = useUnitFilter();
 
   useEffect(() => {
     async function fetchData() {
@@ -41,6 +43,7 @@ export function SellerComparison() {
           startDate: startDate ?? defaultStart,
           endDate: endDate ?? defaultEnd,
         });
+        if (unitId) params.set("unitId", unitId);
 
         const res = await fetch(`/api/dashboard/seller-comparison?${params}`);
         const json = await res.json();
@@ -52,7 +55,7 @@ export function SellerComparison() {
       }
     }
     fetchData();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, unitId]);
 
   if (loading) {
     return (

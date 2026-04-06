@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ export function PeriodComparison() {
   const endDate = searchParams.get("endDate");
   const kpiId = searchParams.get("kpiId");
   const sellerId = searchParams.get("sellerId");
+  const unitId = useUnitFilter();
 
   useEffect(() => {
     async function fetchData() {
@@ -60,6 +62,7 @@ export function PeriodComparison() {
         });
         if (kpiId) params.set("kpiId", kpiId);
         if (sellerId) params.set("sellerId", sellerId);
+        if (unitId) params.set("unitId", unitId);
 
         const res = await fetch(`/api/dashboard/comparison?${params}`);
         const json = await res.json();
@@ -71,11 +74,11 @@ export function PeriodComparison() {
       }
     }
     fetchData();
-  }, [startDate, endDate, kpiId, sellerId]);
+  }, [startDate, endDate, kpiId, sellerId, unitId]);
 
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
@@ -102,7 +105,7 @@ export function PeriodComparison() {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="flex flex-wrap gap-4">
       {data.comparison.map((item) => {
         const isPositive = item.difference > 0;
         const isNeutral = item.difference === 0;
@@ -111,7 +114,7 @@ export function PeriodComparison() {
         const previousBarWidth = (item.previousValue / maxValue) * 100;
 
         return (
-          <Card key={item.kpiId}>
+          <Card key={item.kpiId} className="flex-1 min-w-[280px]">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <span className="text-sm font-medium text-muted-foreground">
                 {item.kpiName}

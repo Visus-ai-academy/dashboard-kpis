@@ -15,7 +15,7 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const { name, role, companyId } = session.user;
+  const { name, role, companyId, teamName } = session.user;
 
   const company = await prisma.company.findUnique({
     where: { id: companyId },
@@ -27,6 +27,7 @@ export default async function DashboardLayout({
       userName={name}
       companyName={company?.name ?? "Empresa"}
       userRole={role}
+      teamName={teamName}
     >
       {children}
     </DashboardShell>

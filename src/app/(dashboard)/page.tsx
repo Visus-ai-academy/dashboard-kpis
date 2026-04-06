@@ -9,6 +9,10 @@ import { SellerComparison } from "@/components/dashboard/seller-comparison";
 import { GoalAchievement } from "@/components/dashboard/goal-achievement";
 import { KpiCardsGrid } from "@/components/dashboard/kpi-cards-grid";
 import { KpiChartsSection } from "@/components/dashboard/kpi-charts-section";
+import { RankingWidget } from "@/components/gamification/ranking-widget";
+import { DerivedKpis } from "@/components/dashboard/derived-kpis";
+import { HeatmapWeek } from "@/components/charts/heatmap-week";
+import { HeatmapMonth } from "@/components/charts/heatmap-month";
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
   return (
@@ -80,6 +84,72 @@ export default function DashboardPage() {
         <Suspense fallback={<SectionSkeleton rows={4} />}>
           <GoalAchievement />
         </Suspense>
+      </div>
+
+      {/* Gamification Ranking */}
+      <Suspense fallback={<SectionSkeleton rows={5} />}>
+        <RankingWidget />
+      </Suspense>
+
+      {/* Derived KPIs */}
+      <div>
+        <h2 className="mb-4 text-lg font-semibold">Indicadores Derivados</h2>
+        <Suspense
+          fallback={
+            <div className="grid gap-4 sm:grid-cols-2">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-4 w-24" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="mb-2 h-8 w-28" />
+                    <Skeleton className="h-3 w-32" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          }
+        >
+          <DerivedKpis />
+        </Suspense>
+      </div>
+
+      {/* Heatmaps */}
+      <div>
+        <h2 className="mb-4 text-lg font-semibold">Análise de Vendas</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Suspense
+            fallback={
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-5 w-56" />
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
+                </CardContent>
+              </Card>
+            }
+          >
+            <HeatmapWeek />
+          </Suspense>
+          <Suspense
+            fallback={
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-5 w-56" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-[400px] w-full" />
+                </CardContent>
+              </Card>
+            }
+          >
+            <HeatmapMonth />
+          </Suspense>
+        </div>
       </div>
 
       {/* KPI Charts */}

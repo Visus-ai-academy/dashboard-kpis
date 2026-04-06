@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils/prisma-helpers";
+import { getSellerIdsByUnit } from "@/lib/queries/unit-sellers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,10 +20,11 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get("endDate");
     const kpiId = searchParams.get("kpiId");
     const sellerId = searchParams.get("sellerId");
+    const unitId = searchParams.get("unitId");
 
     if (!startDate || !endDate) {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "startDate e endDate sao obrigatorios" } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: "startDate e endDate são obrigatórios" } },
         { status: 400 }
       );
     }
@@ -35,11 +37,20 @@ export async function GET(request: NextRequest) {
     const prevEnd = new Date(start.getTime() - 1); // day before start
     const prevStart = new Date(prevEnd.getTime() - periodMs);
 
+    // Resolve unit filter to seller IDs
+    const unitSellerIds = await getSellerIdsByUnit(session.user.companyId, unitId);
+
     // Build the where clause
+    const sellerFilter = sellerId
+      ? { sellerId }
+      : unitSellerIds
+        ? { sellerId: { in: unitSellerIds } }
+        : {};
+
     const baseWhere = {
       companyId: session.user.companyId,
       ...(kpiId ? { kpiId } : {}),
-      ...(sellerId ? { sellerId } : {}),
+      ...sellerFilter,
     };
 
     // Get active KPIs for this company

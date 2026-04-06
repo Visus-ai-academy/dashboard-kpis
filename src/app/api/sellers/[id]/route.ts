@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sellerUpdateSchema } from "@/lib/validators/seller";
+import bcrypt from "bcryptjs";
 
 export async function PUT(
   request: NextRequest,
@@ -51,9 +52,17 @@ export async function PUT(
       }
     }
 
+    const updateData: Record<string, unknown> = { ...parsed.data };
+
+    // Hash password if provided
+    if (body.password && typeof body.password === "string" && body.password.trim()) {
+      updateData.passwordHash = await bcrypt.hash(body.password.trim(), 10);
+    }
+    delete updateData.password;
+
     const seller = await prisma.seller.update({
       where: { id },
-      data: parsed.data,
+      data: updateData,
       include: {
         team: {
           select: {

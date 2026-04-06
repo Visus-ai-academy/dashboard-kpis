@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { toast } from "sonner";
 import { Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ interface EntrySchedule {
 }
 
 const FREQUENCY_LABELS: Record<string, string> = {
+  NONE: "Sem restrição",
   DAILY: "Diário",
   WEEKLY: "Semanal",
   MONTHLY: "Mensal",
@@ -54,6 +56,8 @@ const FREQUENCY_LABELS: Record<string, string> = {
 // ────────────────────────────────────────────────────────────
 
 export default function EntrySchedulesPage() {
+  const unitId = useUnitFilter();
+
   const [schedules, setSchedules] = useState<EntrySchedule[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,15 +65,16 @@ export default function EntrySchedulesPage() {
 
   // Form for new schedule
   const [formKpiId, setFormKpiId] = useState("");
-  const [formFrequency, setFormFrequency] = useState("DAILY");
+  const [formFrequency, setFormFrequency] = useState("NONE");
   const [formDeadline, setFormDeadline] = useState("");
   const [addingSaving, setAddingSaving] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
+      const unitParam = unitId ? `?unitId=${unitId}` : "";
       const [schedulesRes, kpisRes] = await Promise.all([
-        fetch("/api/entry-schedules"),
-        fetch("/api/kpis"),
+        fetch(`/api/entry-schedules${unitParam}`),
+        fetch(`/api/kpis${unitParam}`),
       ]);
       const [schedulesJson, kpisJson] = await Promise.all([
         schedulesRes.json(),
@@ -82,7 +87,7 @@ export default function EntrySchedulesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [unitId]);
 
   useEffect(() => {
     fetchData();
@@ -224,12 +229,14 @@ export default function EntrySchedulesPage() {
                 </span>
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="NONE">Sem restrição</SelectItem>
                 <SelectItem value="DAILY">Diário</SelectItem>
                 <SelectItem value="WEEKLY">Semanal</SelectItem>
                 <SelectItem value="MONTHLY">Mensal</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          {formFrequency !== "NONE" && (
           <div className="space-y-1.5">
             <Label htmlFor="deadline" className="text-xs">
               Horário Limite
@@ -242,6 +249,7 @@ export default function EntrySchedulesPage() {
               placeholder="18:00"
             />
           </div>
+          )}
           <Button onClick={handleAddSchedule} disabled={addingSaving || !formKpiId}>
             <Save className="size-3.5" data-icon="inline-start" />
             {addingSaving ? "Salvando..." : "Salvar"}
@@ -306,6 +314,7 @@ export default function EntrySchedulesPage() {
                         </span>
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="NONE">Sem restrição</SelectItem>
                         <SelectItem value="DAILY">Diário</SelectItem>
                         <SelectItem value="WEEKLY">Semanal</SelectItem>
                         <SelectItem value="MONTHLY">Mensal</SelectItem>

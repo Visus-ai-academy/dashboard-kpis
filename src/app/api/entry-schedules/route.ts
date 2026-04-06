@@ -8,7 +8,7 @@ import { entryScheduleCreateSchema } from "@/lib/validators/entry-schedule";
 // GET /api/entry-schedules
 // ────────────────────────────────────────────────────────────
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.companyId) {
@@ -18,8 +18,16 @@ export async function GET() {
       );
     }
 
+    const { searchParams } = request.nextUrl;
+    const unitId = searchParams.get("unitId");
+
+    const where: Record<string, unknown> = { companyId: session.user.companyId };
+    if (unitId) {
+      where.kpi = { OR: [{ unitId }, { unitId: null }] };
+    }
+
     const schedules = await prisma.entrySchedule.findMany({
-      where: { companyId: session.user.companyId },
+      where,
       include: {
         kpi: { select: { id: true, name: true, type: true, periodicity: true } },
       },

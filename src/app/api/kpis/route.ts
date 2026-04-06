@@ -5,19 +5,28 @@ import { prisma } from "@/lib/prisma";
 import { kpiCreateSchema } from "@/lib/validators/kpi";
 import { toNumber } from "@/lib/utils/prisma-helpers";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.companyId) {
       return NextResponse.json(
-        { success: false, error: { code: "UNAUTHORIZED", message: "Nao autorizado" } },
+        { success: false, error: { code: "UNAUTHORIZED", message: "Não autorizado" } },
         { status: 401 }
       );
     }
 
+    const { searchParams } = request.nextUrl;
+    const unitId = searchParams.get("unitId");
+
+    const where: Record<string, unknown> = { companyId: session.user.companyId };
+    if (unitId) {
+      where.OR = [{ unitId }, { unitId: null }];
+    }
+
     const kpis = await prisma.kpi.findMany({
-      where: { companyId: session.user.companyId },
+      where,
       include: {
+        unit: { select: { id: true, name: true } },
         kpiSectors: { include: { sector: { select: { name: true } } } },
         kpiSellers: { include: { seller: { select: { name: true } } } },
       },

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/lib/queries\")",
+      "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/app/api/sales\")",
+      "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/app/\\(dashboard\\)/history/sales\")",
+      "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/app/api/non-working-days\")",
+      "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/app/api/dashboard/heatmap-week\")"
+    ]
+  }
+}

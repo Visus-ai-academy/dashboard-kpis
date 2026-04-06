@@ -4,11 +4,13 @@ import { useState, useCallback } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
+import { SellerHeader } from "@/components/layout/seller-header";
 
 interface DashboardShellProps {
   userName: string;
   companyName: string;
   userRole: string;
+  teamName?: string;
   children: React.ReactNode;
 }
 
@@ -16,6 +18,7 @@ export function DashboardShell({
   userName,
   companyName,
   userRole,
+  teamName,
   children,
 }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -24,11 +27,12 @@ export function DashboardShell({
     setMobileOpen((prev) => !prev);
   }, []);
 
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Desktop sidebar */}
       <div className="hidden border-r border-sidebar-border md:flex">
-        <Sidebar />
+        <Sidebar userRole={userRole} />
       </div>
 
       {/* Mobile sidebar */}

@@ -16,9 +16,11 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl;
     const sectorId = searchParams.get("sectorId");
+    const unitId = searchParams.get("unitId");
 
     const where: Record<string, unknown> = { companyId: session.user.companyId };
     if (sectorId) where.sectorId = sectorId;
+    if (unitId) where.sector = { unitId };
 
     const teams = await prisma.team.findMany({
       where,

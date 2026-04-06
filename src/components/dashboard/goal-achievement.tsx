@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,7 @@ export function GoalAchievement() {
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
   const sellerId = searchParams.get("sellerId");
+  const unitId = useUnitFilter();
 
   useEffect(() => {
     async function fetchData() {
@@ -58,6 +60,7 @@ export function GoalAchievement() {
           endDate: endDate ?? defaultEnd,
         });
         if (sellerId) params.set("sellerId", sellerId);
+        if (unitId) params.set("unitId", unitId);
 
         const res = await fetch(`/api/dashboard/goal-achievement?${params}`);
         const json = await res.json();
@@ -69,7 +72,7 @@ export function GoalAchievement() {
       }
     }
     fetchData();
-  }, [startDate, endDate, sellerId]);
+  }, [startDate, endDate, sellerId, unitId]);
 
   if (loading) {
     return (

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const entryScheduleCreateSchema = z.object({
-  kpiId: z.string().uuid("ID do KPI inválido"),
-  frequency: z.enum(["DAILY", "WEEKLY", "MONTHLY"], {
+  kpiId: z.string().min(1, "ID do KPI é obrigatório"),
+  frequency: z.enum(["NONE", "DAILY", "WEEKLY", "MONTHLY"], {
     message: "Frequência é obrigatória",
   }),
   deadlineTime: z

@@ -18,6 +18,10 @@ import {
   ShoppingCart,
   FileText,
   CalendarClock,
+  CalendarOff,
+  Contact,
+  Send,
+  UserRoundSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -42,9 +46,11 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Unidades", href: "/config/units", icon: Building2 },
       { label: "Setores", href: "/config/sectors", icon: Network },
       { label: "Equipes", href: "/config/teams", icon: Users },
-      { label: "Vendedores", href: "/config/sellers", icon: UserCheck },
+      { label: "Usuários", href: "/config/sellers", icon: UserCheck },
       { label: "KPIs", href: "/config/kpis", icon: BarChart3 },
       { label: "Frequência", href: "/config/entry-schedules", icon: CalendarClock },
+      { label: "Feriados", href: "/config/non-working-days", icon: CalendarOff },
+      { label: "Clientes", href: "/config/clients", icon: Contact },
     ],
   },
   {
@@ -60,6 +66,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Vendas", href: "/history/sales", icon: ShoppingCart },
       { label: "Lançamentos", href: "/history/entries", icon: FileText },
+      { label: "Leads", href: "/history/leads", icon: UserRoundSearch },
     ],
   },
 ];
@@ -125,9 +132,11 @@ function CollapsibleSection({
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
   const pathname = usePathname();
   const isDashboardActive = pathname === "/";
+  const isLancamentoActive = pathname === "/lancamento";
+  const isSeller = userRole === "SELLER";
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
@@ -163,15 +172,35 @@ export function Sidebar() {
           <span>Dashboard</span>
         </Link>
 
-        <div className="mt-2 flex flex-col gap-1">
-          {NAV_SECTIONS.map((section) => (
-            <CollapsibleSection
-              key={section.label}
-              section={section}
-              pathname={pathname}
-            />
-          ))}
-        </div>
+        {/* Lançamento link (for sellers) */}
+        {isSeller && (
+          <Link
+            href="/lancamento"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              isLancamentoActive
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+            aria-current={isLancamentoActive ? "page" : undefined}
+          >
+            <Send className="size-4 shrink-0" />
+            <span>Lançamento</span>
+          </Link>
+        )}
+
+        {/* Admin sections */}
+        {!isSeller && (
+          <div className="mt-2 flex flex-col gap-1">
+            {NAV_SECTIONS.map((section) => (
+              <CollapsibleSection
+                key={section.label}
+                section={section}
+                pathname={pathname}
+              />
+            ))}
+          </div>
+        )}
       </nav>
 
       {/* Footer */}

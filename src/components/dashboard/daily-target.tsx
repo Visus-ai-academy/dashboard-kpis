@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { Calendar, Target, TrendingUp, Hash } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +44,7 @@ export function DailyTarget() {
 
   const kpiId = searchParams.get("kpiId");
   const sellerId = searchParams.get("sellerId");
+  const unitId = useUnitFilter();
 
   useEffect(() => {
     async function fetchData() {
@@ -51,6 +53,7 @@ export function DailyTarget() {
         const params = new URLSearchParams();
         if (kpiId) params.set("kpiId", kpiId);
         if (sellerId) params.set("sellerId", sellerId);
+        if (unitId) params.set("unitId", unitId);
         params.set("includeSaturday", String(includeSaturday));
         params.set("includeSunday", String(includeSunday));
 
@@ -64,7 +67,7 @@ export function DailyTarget() {
       }
     }
     fetchData();
-  }, [kpiId, sellerId, includeSaturday, includeSunday]);
+  }, [kpiId, sellerId, unitId, includeSaturday, includeSunday]);
 
   if (loading) {
     return (

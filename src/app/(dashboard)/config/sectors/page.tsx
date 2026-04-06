@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,8 @@ interface Sector {
 }
 
 export default function SectorsPage() {
+  const unitIdFilter = useUnitFilter();
+
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,8 +61,9 @@ export default function SectorsPage() {
 
   const fetchData = useCallback(async () => {
     try {
+      const sectorParams = unitIdFilter ? `?unitId=${unitIdFilter}` : "";
       const [sectorsRes, unitsRes] = await Promise.all([
-        fetch("/api/sectors"),
+        fetch(`/api/sectors${sectorParams}`),
         fetch("/api/units"),
       ]);
       const [sectorsJson, unitsJson] = await Promise.all([
@@ -73,7 +77,7 @@ export default function SectorsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [unitIdFilter]);
 
   useEffect(() => {
     fetchData();

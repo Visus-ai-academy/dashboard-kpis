@@ -1,7 +1,8 @@
 "use client";
 
 import {
-  LineChart as RechartsLineChart,
+  ComposedChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -51,22 +52,34 @@ export function KpiLineChart({ data, kpiType, mode = "cumulative" }: KpiLineChar
   }
 
   const dataKey = mode === "cumulative" ? "cumulative" : "value";
-  const achievedLabel = mode === "cumulative" ? "Realizado Acumulado" : "Valor Diario";
+  const achievedLabel = mode === "cumulative" ? "Realizado Acumulado" : "Valor Diário";
 
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <RechartsLineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+      <ComposedChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+        <defs>
+          <linearGradient id="gradientRealizado" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#34594F" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#34594F" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="gradientMeta" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#C1D9D4" stopOpacity={0.4} />
+            <stop offset="95%" stopColor="#C1D9D4" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="#C1D9D4" strokeOpacity={0.5} />
         <XAxis
           dataKey="date"
           tickFormatter={formatDateLabel}
-          className="text-xs"
-          tick={{ fontSize: 11 }}
+          tick={{ fontSize: 11, fill: "#6D8C84" }}
+          axisLine={{ stroke: "#C1D9D4" }}
+          tickLine={{ stroke: "#C1D9D4" }}
         />
         <YAxis
           tickFormatter={(v: number) => formatValue(v, kpiType)}
-          className="text-xs"
-          tick={{ fontSize: 11 }}
+          tick={{ fontSize: 11, fill: "#6D8C84" }}
+          axisLine={{ stroke: "#C1D9D4" }}
+          tickLine={{ stroke: "#C1D9D4" }}
           width={80}
         />
         <Tooltip
@@ -77,35 +90,42 @@ export function KpiLineChart({ data, kpiType, mode = "cumulative" }: KpiLineChar
           labelFormatter={(label: unknown) => formatDateLabel(String(label))}
           contentStyle={{
             borderRadius: "8px",
-            border: "1px solid hsl(var(--border))",
-            backgroundColor: "hsl(var(--popover))",
-            color: "hsl(var(--popover-foreground))",
+            border: "1px solid #C1D9D4",
+            backgroundColor: "#FFFFFF",
+            color: "#112622",
+            boxShadow: "0 4px 12px rgba(17, 38, 34, 0.08)",
           }}
         />
-        <Legend />
-        {/* Achieved line - solid red */}
-        <Line
-          type="monotone"
-          dataKey={dataKey}
-          name={achievedLabel}
-          stroke="hsl(0, 72%, 51%)"
-          strokeWidth={2}
-          dot={{ r: 3 }}
-          activeDot={{ r: 5 }}
+        <Legend
+          wrapperStyle={{ fontSize: "12px", color: "#6D8C84" }}
         />
-        {/* Target projection line - dashed green (cumulative mode only) */}
+
+        {/* Meta projetada - area com gradiente claro (render first = behind) */}
         {mode === "cumulative" && (
-          <Line
+          <Area
             type="monotone"
             dataKey="projectedTarget"
             name="Meta Projetada"
-            stroke="hsl(142, 71%, 45%)"
+            stroke="#6D8C84"
             strokeWidth={2}
-            strokeDasharray="5 5"
+            strokeDasharray="6 4"
+            fill="url(#gradientMeta)"
             dot={false}
           />
         )}
-      </RechartsLineChart>
+
+        {/* Realizado - area com gradiente + linha sólida */}
+        <Area
+          type="monotone"
+          dataKey={dataKey}
+          name={achievedLabel}
+          stroke="#214037"
+          strokeWidth={2.5}
+          fill="url(#gradientRealizado)"
+          dot={{ r: 3, fill: "#214037", stroke: "#FFFFFF", strokeWidth: 2 }}
+          activeDot={{ r: 5, fill: "#112622", stroke: "#FFFFFF", strokeWidth: 2 }}
+        />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

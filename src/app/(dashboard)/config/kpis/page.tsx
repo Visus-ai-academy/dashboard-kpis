@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { toast } from "sonner";
 import {
   Plus,
@@ -105,8 +106,6 @@ const CHART_LABELS: Record<string, string> = {
   LINE: "Linha",
   BAR: "Barras",
   AREA: "Area",
-  PIE: "Pizza",
-  RADIAL: "Radial",
   STACKED_BAR: "Barras Empilhadas",
 };
 
@@ -119,9 +118,17 @@ const MONTH_LABELS = [
 // Component
 // ────────────────────────────────────────────────────────────
 
+interface Unit {
+  id: string;
+  name: string;
+}
+
 export default function KpisPage() {
+  const unitIdFilter = useUnitFilter();
+
   const [kpis, setKpis] = useState<Kpi[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
 
   // KPI modal state
@@ -141,6 +148,7 @@ export default function KpisPage() {
   const [formPrimary, setFormPrimary] = useState(false);
   const [formScope, setFormScope] = useState("COMPANY");
   const [formChart, setFormChart] = useState("LINE");
+  const [formUnitId, setFormUnitId] = useState<string | null>(null);
 
   // Monthly targets modal
   const [mtOpen, setMtOpen] = useState(false);
@@ -153,22 +161,26 @@ export default function KpisPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [kpisRes, sellersRes] = await Promise.all([
-        fetch("/api/kpis"),
+      const unitParam = unitIdFilter ? `?unitId=${unitIdFilter}` : "";
+      const [kpisRes, sellersRes, unitsRes] = await Promise.all([
+        fetch(`/api/kpis${unitParam}`),
         fetch("/api/sellers"),
+        fetch("/api/units"),
       ]);
-      const [kpisJson, sellersJson] = await Promise.all([
+      const [kpisJson, sellersJson, unitsJson] = await Promise.all([
         kpisRes.json(),
         sellersRes.json(),
+        unitsRes.json(),
       ]);
       if (kpisJson.success) setKpis(kpisJson.data);
       if (sellersJson.success) setSellers(sellersJson.data);
+      if (unitsJson.success) setUnits(unitsJson.data);
     } catch {
       toast.error("Erro ao carregar dados");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [unitIdFilter]);
 
   useEffect(() => {
     fetchData();
@@ -187,6 +199,7 @@ export default function KpisPage() {
     setFormPrimary(false);
     setFormScope("COMPANY");
     setFormChart("LINE");
+    setFormUnitId(null);
     setModalOpen(true);
   }
 
@@ -201,6 +214,7 @@ export default function KpisPage() {
     setFormPrimary(kpi.isPrimary);
     setFormScope(kpi.scope);
     setFormChart(kpi.chartType);
+    setFormUnitId((kpi as any).unitId ?? null);
     setModalOpen(true);
   }
 
@@ -236,6 +250,7 @@ export default function KpisPage() {
           isPrimary: formPrimary,
           scope: formScope,
           chartType: formChart,
+          unitId: formUnitId || null,
         }),
       });
       const json = await res.json();
@@ -430,6 +445,7 @@ export default function KpisPage() {
               <TableHead>Periodicidade</TableHead>
               <TableHead>Meta</TableHead>
               <TableHead>Escopo</TableHead>
+              <TableHead>Unidade</TableHead>
               <TableHead>Gráfico</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[100px]">Ações</TableHead>
@@ -448,7 +464,7 @@ export default function KpisPage() {
               ))
             ) : kpis.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                   Nenhum KPI cadastrado
                 </TableCell>
               </TableRow>
@@ -485,6 +501,9 @@ export default function KpisPage() {
                     <Badge variant="outline">
                       {SCOPE_LABELS[kpi.scope] ?? kpi.scope}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {(kpi as any).unit?.name ?? "Global"}
                   </TableCell>
                   <TableCell>
                     {CHART_LABELS[kpi.chartType] ?? kpi.chartType}
@@ -564,7 +583,7 @@ export default function KpisPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="kpi-target">Valor Alvo *</Label>
+              <Label htmlFor="kpi-target">Meta *</Label>
               <Input
                 id="kpi-target"
                 type="number"
@@ -597,19 +616,39 @@ export default function KpisPage() {
                 <Select value={formChart} onValueChange={(v) => v && setFormChart(v)}>
                   <SelectTrigger className="w-full">
                     <span className="flex flex-1 text-left truncate">
-                      {{ LINE: "Linha", BAR: "Barras", AREA: "Área", PIE: "Pizza", RADIAL: "Radial", STACKED_BAR: "Barras Empilhadas" }[formChart] ?? "Selecione"}
+                      {{ LINE: "Linha" }[formChart] ?? "Linha"}
                     </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="LINE">Linha</SelectItem>
-                    <SelectItem value="BAR">Barras</SelectItem>
-                    <SelectItem value="AREA">Área</SelectItem>
-                    <SelectItem value="PIE">Pizza</SelectItem>
-                    <SelectItem value="RADIAL">Radial</SelectItem>
-                    <SelectItem value="STACKED_BAR">Barras Empilhadas</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Unidade (opcional) */}
+            <div className="space-y-2">
+              <Label>Unidade (opcional)</Label>
+              <Select
+                value={formUnitId || "__none__"}
+                onValueChange={(v) => v && setFormUnitId(v === "__none__" ? null : v)}
+              >
+                <SelectTrigger className="w-full">
+                  <span className="flex flex-1 text-left truncate">
+                    {formUnitId
+                      ? units.find((u) => u.id === formUnitId)?.name ?? "Todas as unidades"
+                      : "Todas as unidades (global)"}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Todas as unidades (global)</SelectItem>
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Toggles */}

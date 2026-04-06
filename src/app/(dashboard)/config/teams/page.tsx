@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useUnitFilter } from "@/lib/hooks/use-unit-filter";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,8 @@ interface Team {
 }
 
 export default function TeamsPage() {
+  const unitIdFilter = useUnitFilter();
+
   const [teams, setTeams] = useState<Team[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,9 +61,10 @@ export default function TeamsPage() {
 
   const fetchData = useCallback(async () => {
     try {
+      const unitParam = unitIdFilter ? `?unitId=${unitIdFilter}` : "";
       const [teamsRes, sectorsRes] = await Promise.all([
-        fetch("/api/teams"),
-        fetch("/api/sectors"),
+        fetch(`/api/teams${unitParam}`),
+        fetch(`/api/sectors${unitParam}`),
       ]);
       const [teamsJson, sectorsJson] = await Promise.all([
         teamsRes.json(),
@@ -73,7 +77,7 @@ export default function TeamsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [unitIdFilter]);
 
   useEffect(() => {
     fetchData();

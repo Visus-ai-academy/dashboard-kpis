@@ -5,6 +5,12 @@ import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@prisma/client";
 
 // ────────────────────────────────────────────────────────────
+// Custom role type that extends Prisma UserRole with SELLER
+// ────────────────────────────────────────────────────────────
+
+export type AppRole = UserRole | "SELLER";
+
+// ────────────────────────────────────────────────────────────
 // NextAuth type augmentation
 // ────────────────────────────────────────────────────────────
 
@@ -14,7 +20,9 @@ declare module "next-auth" {
     companyId: string;
     name: string;
     email: string;
-    role: UserRole;
+    role: AppRole;
+    sellerId?: string;
+    teamName?: string;
   }
 
   interface Session {
@@ -23,7 +31,9 @@ declare module "next-auth" {
       companyId: string;
       name: string;
       email: string;
-      role: UserRole;
+      role: AppRole;
+      sellerId?: string;
+      teamName?: string;
     };
   }
 }
@@ -32,7 +42,9 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     companyId: string;
-    role: UserRole;
+    role: AppRole;
+    sellerId?: string;
+    teamName?: string;
   }
 }
 
@@ -51,8 +63,10 @@ export const authOptions: NextAuthOptions = {
   },
 
   providers: [
+    // ── Admin / Manager credentials ──
     CredentialsProvider({
-      name: "credentials",
+      id: "admin-credentials",
+      name: "Admin",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Senha", type: "password" },
@@ -98,6 +112,60 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
+
+    // ── Seller credentials (email + senha) ──
+    CredentialsProvider({
+      id: "seller-credentials",
+      name: "Vendedor",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Senha", type: "password" },
+      },
+
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("E-mail ou senha incorretos");
+        }
+
+        const seller = await prisma.seller.findFirst({
+          where: {
+            email: { equals: credentials.email, mode: "insensitive" },
+          },
+          select: {
+            id: true,
+            companyId: true,
+            name: true,
+            email: true,
+            passwordHash: true,
+            isActive: true,
+            team: { select: { name: true } },
+          },
+        });
+
+        if (!seller || !seller.isActive || !seller.passwordHash) {
+          throw new Error("E-mail ou senha incorretos");
+        }
+
+        const passwordValid = await bcrypt.compare(
+          credentials.password,
+          seller.passwordHash
+        );
+
+        if (!passwordValid) {
+          throw new Error("E-mail ou senha incorretos");
+        }
+
+        return {
+          id: seller.id,
+          companyId: seller.companyId,
+          name: seller.name,
+          email: seller.email ?? "",
+          role: "SELLER" as const,
+          sellerId: seller.id,
+          teamName: seller.team?.name ?? undefined,
+        };
+      },
+    }),
   ],
 
   callbacks: {
@@ -106,6 +174,8 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.companyId = user.companyId;
         token.role = user.role;
+        token.sellerId = user.sellerId;
+        token.teamName = user.teamName;
       }
       return token;
     },
@@ -117,6 +187,8 @@ export const authOptions: NextAuthOptions = {
         name: token.name ?? "",
         email: token.email ?? "",
         role: token.role,
+        sellerId: token.sellerId,
+        teamName: token.teamName,
       };
       return session;
     },

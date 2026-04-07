@@ -36,7 +36,7 @@ export async function GET(
       orderBy: { displayOrder: "asc" },
     });
 
-    const serialized = levels.map((l) => ({
+    const serialized = levels.map((l: any) => ({
       ...l,
       minPoints: toNumber(l.minPoints),
     }));

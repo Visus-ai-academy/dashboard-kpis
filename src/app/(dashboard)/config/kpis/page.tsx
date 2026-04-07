@@ -65,6 +65,7 @@ interface Kpi {
   isPrimary: boolean;
   scope: string;
   chartType: string;
+  unitId: string | null;
   displayOrder: number;
   isActive: boolean;
   kpiSectors: KpiSector[];
@@ -216,7 +217,7 @@ export default function KpisPage() {
     setFormPrimary(kpi.isPrimary);
     setFormScope(kpi.scope);
     setFormChart(kpi.chartType);
-    setFormUnitId((kpi as any).unitId ?? null);
+    setFormUnitId(kpi.unitId ?? null);
     setFormSellerIds(kpi.kpiSellers?.map((ks) => ks.sellerId) ?? []);
     setModalOpen(true);
   }
@@ -229,6 +230,10 @@ export default function KpisPage() {
   async function handleSave() {
     if (!formName.trim()) {
       toast.error("Nome é obrigatório");
+      return;
+    }
+    if (formScope === "SPECIFIC_SELLERS" && formSellerIds.length === 0) {
+      toast.error("Selecione ao menos um vendedor");
       return;
     }
     const targetValue = parseFloat(formTarget);

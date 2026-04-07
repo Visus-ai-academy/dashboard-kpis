@@ -149,6 +149,7 @@ export default function KpisPage() {
   const [formScope, setFormScope] = useState("COMPANY");
   const [formChart, setFormChart] = useState("LINE");
   const [formUnitId, setFormUnitId] = useState<string | null>(null);
+  const [formSellerIds, setFormSellerIds] = useState<string[]>([]);
 
   // Monthly targets modal
   const [mtOpen, setMtOpen] = useState(false);
@@ -200,6 +201,7 @@ export default function KpisPage() {
     setFormScope("COMPANY");
     setFormChart("LINE");
     setFormUnitId(null);
+    setFormSellerIds([]);
     setModalOpen(true);
   }
 
@@ -215,6 +217,7 @@ export default function KpisPage() {
     setFormScope(kpi.scope);
     setFormChart(kpi.chartType);
     setFormUnitId((kpi as any).unitId ?? null);
+    setFormSellerIds(kpi.kpiSellers?.map((ks) => ks.sellerId) ?? []);
     setModalOpen(true);
   }
 
@@ -251,6 +254,7 @@ export default function KpisPage() {
           scope: formScope,
           chartType: formChart,
           unitId: formUnitId || null,
+          sellerIds: formScope === "SPECIFIC_SELLERS" ? formSellerIds : [],
         }),
       });
       const json = await res.json();
@@ -625,6 +629,44 @@ export default function KpisPage() {
                 </Select>
               </div>
             </div>
+
+            {/* Seleção de vendedores quando escopo é SPECIFIC_SELLERS */}
+            {formScope === "SPECIFIC_SELLERS" && (
+              <div className="space-y-2">
+                <Label>Vendedores *</Label>
+                <div className="border rounded-md max-h-40 overflow-y-auto p-2 space-y-1">
+                  {sellers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum vendedor cadastrado</p>
+                  ) : (
+                    sellers.map((s) => (
+                      <label
+                        key={s.id}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formSellerIds.includes(s.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormSellerIds((prev) => [...prev, s.id]);
+                            } else {
+                              setFormSellerIds((prev) => prev.filter((id) => id !== s.id));
+                            }
+                          }}
+                          className="rounded border-input"
+                        />
+                        {s.name}
+                      </label>
+                    ))
+                  )}
+                </div>
+                {formSellerIds.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {formSellerIds.length} vendedor(es) selecionado(s)
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Unidade (opcional) */}
             <div className="space-y-2">

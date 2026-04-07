@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/register", "/api/auth", "/api/launch"];
+const PUBLIC_PATHS = ["/login", "/api/auth", "/api/launch"];
 const LAUNCH_PREFIX = "/launch";
 
 // Routes sellers are allowed to access
@@ -43,8 +43,8 @@ export async function middleware(request: NextRequest) {
 
   const token = await getToken({ req: request });
 
-  // Authenticated user on /login or /register -> redirect to dashboard
-  if ((pathname === "/login" || pathname === "/register") && token) {
+  // Authenticated user on /login -> redirect to dashboard
+  if (pathname === "/login" && token) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

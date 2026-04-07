@@ -5,7 +5,11 @@
       "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/app/api/sales\")",
       "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/app/\\(dashboard\\)/history/sales\")",
       "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/app/api/non-working-days\")",
-      "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/app/api/dashboard/heatmap-week\")"
+      "Bash(mkdir -p \"C:/Users/rodol/Downloads/dashboard/dashboard-kpis/src/app/api/dashboard/heatmap-week\")",
+      "Bash(rm \"/Users/leonardoberlandadevaloes/Desktop/Projetos Visus/dashboard-kpis/src/app/\\(auth\\)/register/page.tsx\")",
+      "Bash(rmdir \"/Users/leonardoberlandadevaloes/Desktop/Projetos Visus/dashboard-kpis/src/app/\\(auth\\)/register\")",
+      "Bash(rm \"/Users/leonardoberlandadevaloes/Desktop/Projetos Visus/dashboard-kpis/src/app/api/auth/register/route.ts\")",
+      "Bash(rmdir \"/Users/leonardoberlandadevaloes/Desktop/Projetos Visus/dashboard-kpis/src/app/api/auth/register\")"
     ]
   }
 }

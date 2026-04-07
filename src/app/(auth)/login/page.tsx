@@ -3,7 +3,6 @@
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,8 +19,6 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
-  const registered = searchParams.get("registered") === "true";
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -109,12 +106,6 @@ function LoginForm() {
             />
           </div>
 
-          {registered && !error && (
-            <p className="text-sm text-center" style={{ color: "#34594F" }}>
-              Conta criada com sucesso! Faça login para continuar.
-            </p>
-          )}
-
           {error && (
             <p className="text-sm text-destructive text-center">{error}</p>
           )}
@@ -123,16 +114,6 @@ function LoginForm() {
             {loading ? "Entrando..." : "Entrar"}
           </Button>
 
-          <p className="text-sm text-center text-muted-foreground">
-            Não tem conta?{" "}
-            <Link
-              href="/register"
-              className="font-medium hover:underline"
-              style={{ color: "#34594F" }}
-            >
-              Registre-se
-            </Link>
-          </p>
         </form>
       </CardContent>
     </Card>

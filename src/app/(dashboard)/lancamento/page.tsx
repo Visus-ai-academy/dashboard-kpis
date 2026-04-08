@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -11,6 +11,9 @@ import {
   Trash2,
   Users,
   Hash,
+  ChevronDown,
+  Search,
+  X,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -62,6 +65,110 @@ const PERIODICITY_LABELS: Record<string, string> = {
 
 function isMonetaryKpi(type: string): boolean {
   return type === "MONETARY";
+}
+
+// ────────────────────────────────────────────────────────────
+// Custom Client Select dropdown
+// ────────────────────────────────────────────────────────────
+
+function ClientSelect({
+  value,
+  onChange,
+  clients,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  clients: ClientItem[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+  const selected = clients.find((c) => c.id === value);
+
+  const filtered = search
+    ? clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+    : clients;
+
+  useEffect(() => {
+    if (open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+  }, [open]);
+
+  return (
+    <div className="w-full">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between rounded-lg border border-[#C1D9D4] bg-white px-3 py-2 text-xs text-[#112622] outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
+      >
+        <span className={selected ? "text-[#112622]" : "text-[#6D8C84]/60"}>
+          {selected ? selected.name : "Cliente (opcional)"}
+        </span>
+        <div className="flex items-center gap-1">
+          {selected && (
+            <span
+              role="button"
+              onClick={(e) => { e.stopPropagation(); onChange(""); setSearch(""); }}
+              className="text-[#6D8C84] hover:text-red-500 transition-colors"
+            >
+              <X className="size-3" />
+            </span>
+          )}
+          <ChevronDown className={`size-3.5 text-[#6D8C84] transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => { setOpen(false); setSearch(""); }} />
+          <div
+            className="fixed z-[9999] rounded-lg border border-[#C1D9D4] bg-white shadow-lg overflow-hidden"
+            style={{ top: pos.top, left: pos.left, width: pos.width }}
+          >
+            {clients.length > 5 && (
+              <div className="p-2 border-b border-[#C1D9D4]/50">
+                <div className="flex items-center gap-2 rounded-md border border-[#C1D9D4]/50 bg-[#f8fbfa] px-2 py-1.5">
+                  <Search className="size-3 text-[#6D8C84]" />
+                  <input
+                    type="text"
+                    placeholder="Buscar cliente..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="flex-1 bg-transparent text-xs text-[#112622] placeholder:text-[#6D8C84]/50 outline-none"
+                    autoFocus
+                  />
+                </div>
+              </div>
+            )}
+            <div className="max-h-52 overflow-y-auto">
+              {filtered.length === 0 ? (
+                <div className="px-3 py-3 text-xs text-[#6D8C84]/60 text-center">
+                  Nenhum cliente encontrado
+                </div>
+              ) : (
+                filtered.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => { onChange(c.id); setOpen(false); setSearch(""); }}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[#E8F0EE] ${
+                      c.id === value ? "bg-[#E8F0EE] text-[#112622] font-medium" : "text-[#34594F]"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 // ────────────────────────────────────────────────────────────
@@ -436,16 +543,11 @@ export default function LancamentoPage() {
                           className="flex-1 rounded-lg border border-[#C1D9D4] bg-white px-3 py-2 text-sm text-[#112622] placeholder:text-[#6D8C84]/50 outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
                         />
                       </div>
-                      <select
+                      <ClientSelect
                         value={quick.clientId}
-                        onChange={(e) => setQuickValues((p) => ({ ...p, [kpi.id]: { ...quick, clientId: e.target.value } }))}
-                        className="w-full rounded-lg border border-[#C1D9D4] bg-white px-3 py-2 text-xs text-[#112622] outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
-                      >
-                        <option value="">Cliente (opcional)</option>
-                        {clients.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
+                        onChange={(id) => setQuickValues((p) => ({ ...p, [kpi.id]: { ...quick, clientId: id } }))}
+                        clients={clients}
+                      />
                       <input
                         type="text"
                         placeholder="Observações"
@@ -486,16 +588,11 @@ export default function LancamentoPage() {
                               className="flex-1 rounded-lg border border-[#C1D9D4] bg-white px-3 py-1.5 text-sm text-[#112622] placeholder:text-[#6D8C84]/50 outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
                             />
                           </div>
-                          <select
+                          <ClientSelect
                             value={row.clientId}
-                            onChange={(e) => updateRow(kpi.id, index, "clientId", e.target.value)}
-                            className="w-full rounded-lg border border-[#C1D9D4] bg-white px-3 py-1.5 text-xs text-[#112622] outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
-                          >
-                            <option value="">Cliente (opcional)</option>
-                            {clients.map((c) => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
+                            onChange={(id) => updateRow(kpi.id, index, "clientId", id)}
+                            clients={clients}
+                          />
                           <input
                             type="text"
                             placeholder="Observações"

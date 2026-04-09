@@ -43,14 +43,23 @@ export async function GET(request: NextRequest) {
         ? { sellerId: { in: unitSellerIds } }
         : {};
 
-    // Get all active KPIs
-    const kpis = await prisma.kpi.findMany({
+    // Get all active KPIs (filter by scope when seller is selected)
+    const allKpis = await prisma.kpi.findMany({
       where: {
         companyId: session.user.companyId,
         isActive: true,
       },
+      include: { kpiSellers: { select: { sellerId: true } } },
       orderBy: { displayOrder: "asc" },
     });
+
+    // When a seller is selected, exclude SPECIFIC_SELLERS KPIs that don't include this seller
+    const kpis = sellerId
+      ? allKpis.filter((k) =>
+          k.scope !== "SPECIFIC_SELLERS" ||
+          k.kpiSellers.some((ks) => ks.sellerId === sellerId)
+        )
+      : allKpis;
 
     // Get entries for the period
     const entries = await prisma.entry.findMany({

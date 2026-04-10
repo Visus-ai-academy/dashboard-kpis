@@ -10,6 +10,8 @@ import {
   Copy,
   RefreshCw,
   ExternalLink,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +83,7 @@ export default function SellersPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [teamId, setTeamId] = useState("");
 
   const fetchData = useCallback(async () => {
@@ -113,6 +116,7 @@ export default function SellersPage() {
     setEmail("");
     setPhone("");
     setPassword("");
+    setShowPassword(false);
     setTeamId("");
     setModalOpen(true);
   }
@@ -123,6 +127,7 @@ export default function SellersPage() {
     setEmail(seller.email ?? "");
     setPhone(seller.phone ?? "");
     setPassword("");
+    setShowPassword(false);
     setTeamId(seller.teamId ?? "");
     setModalOpen(true);
   }
@@ -358,8 +363,12 @@ export default function SellersPage() {
               <Label htmlFor="seller-phone">Telefone</Label>
               <Input
                 id="seller-phone"
+                type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9() \-+]/g, "");
+                  setPhone(v);
+                }}
                 placeholder="(11) 99999-9999"
               />
             </div>
@@ -367,13 +376,23 @@ export default function SellersPage() {
               <Label htmlFor="seller-password">
                 {editing ? "Nova Senha (deixe vazio para manter)" : "Senha *"}
               </Label>
-              <Input
-                id="seller-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={editing ? "••••••••" : "Senha do usuário"}
-              />
+              <div className="relative">
+                <Input
+                  id="seller-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={editing ? "••••••••" : "Senha do usuário"}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Equipe</Label>

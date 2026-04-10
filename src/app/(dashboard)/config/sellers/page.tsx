@@ -260,9 +260,9 @@ export default function SellersPage() {
               <TableHead>Nome</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Telefone</TableHead>
-              <TableHead>Código de Acesso</TableHead>
+              {/* Código de Acesso oculto */}
               <TableHead>Status</TableHead>
-              <TableHead className="w-[180px]">Ações</TableHead>
+              <TableHead className="w-[150px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -293,11 +293,7 @@ export default function SellersPage() {
                   <TableCell className="text-muted-foreground">
                     {seller.phone ?? "-"}
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="font-mono">
-                      {seller.accessCode}
-                    </Badge>
-                  </TableCell>
+                  {/* Código de Acesso oculto */}
                   <TableCell>
                     <button onClick={() => toggleStatus(seller)} className="cursor-pointer">
                       <Badge variant={seller.isActive ? "default" : "secondary"}>
@@ -306,16 +302,14 @@ export default function SellersPage() {
                     </button>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="icon-xs" onClick={() => window.open(`/launch/${seller.accessToken}`, "_blank")} title="Abrir lançamento">
                         <ExternalLink className="size-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon-xs" onClick={() => copyLaunchLink(seller)} title="Copiar link">
                         <Copy className="size-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon-xs" onClick={() => regenerateCode(seller)} title="Regenerar código">
-                        <RefreshCw className="size-3.5" />
-                      </Button>
+                      {/* Regenerar código oculto */}
                       <Button variant="ghost" size="icon-xs" onClick={() => openEdit(seller)} title="Editar">
                         <Pencil className="size-3.5" />
                       </Button>

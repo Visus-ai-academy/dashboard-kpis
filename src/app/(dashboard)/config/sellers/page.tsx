@@ -384,6 +384,7 @@ export default function SellersPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={editing ? "••••••••" : "Senha do usuário"}
                   className="pr-10"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"

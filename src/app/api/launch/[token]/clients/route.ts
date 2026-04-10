@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // ────────────────────────────────────────────────────────────
@@ -36,31 +34,7 @@ export async function GET(
       );
     }
 
-    // Allow admin bypass (logged-in admin/manager)
-    const session = await getServerSession(authOptions);
-    const isAdmin = session?.user?.role && session.user.role !== "SELLER";
-
-    if (!isAdmin) {
-      // Validate credentials from query params
-      const { searchParams } = new URL(request.url);
-      const email = searchParams.get("email");
-      const accessCode = searchParams.get("accessCode");
-
-      if (
-        !email ||
-        !accessCode ||
-        email.toLowerCase() !== (seller.email ?? "").toLowerCase() ||
-        accessCode.toUpperCase() !== seller.accessCode.toUpperCase()
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: { code: "UNAUTHORIZED", message: "Credenciais inválidas" },
-          },
-          { status: 401 }
-        );
-      }
-    }
+    // No authentication required — link access is sufficient
 
     const clients = await prisma.client.findMany({
       where: {
@@ -117,30 +91,7 @@ export async function POST(
       );
     }
 
-    // Allow admin bypass
-    const session = await getServerSession(authOptions);
-    const isAdminPost = session?.user?.role && session.user.role !== "SELLER";
-
-    if (!isAdminPost) {
-      // Validate credentials from headers
-      const email = request.headers.get("x-seller-email");
-      const accessCode = request.headers.get("x-seller-code");
-
-      if (
-        !email ||
-        !accessCode ||
-        email.toLowerCase() !== (seller.email ?? "").toLowerCase() ||
-        accessCode.toUpperCase() !== seller.accessCode.toUpperCase()
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: { code: "UNAUTHORIZED", message: "Credenciais inválidas" },
-          },
-          { status: 401 }
-        );
-      }
-    }
+    // No authentication required — link access is sufficient
 
     const body = await request.json();
 

@@ -88,34 +88,7 @@ export async function GET(
       );
     }
 
-    // Check if an admin is already logged in — skip auth
-    const session = await getServerSession(authOptions);
-    const isAdmin = session?.user?.role && session.user.role !== "SELLER";
-
-    // If no credentials provided and not admin, return only seller name (for login screen)
-    if (!email && !accessCode && !isAdmin) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          requiresAuth: true,
-          seller: { name: seller.name, teamName: seller.team?.name ?? null },
-        },
-      });
-    }
-
-    // Validate credentials (skip if admin is logged in)
-    if (
-      !isAdmin && (
-        !email || !accessCode ||
-        email.toLowerCase() !== (seller.email ?? "").toLowerCase() ||
-        accessCode.toUpperCase() !== seller.accessCode.toUpperCase()
-      )
-    ) {
-      return NextResponse.json(
-        { success: false, error: { code: "UNAUTHORIZED", message: "E-mail ou código de acesso inválido" } },
-        { status: 401 }
-      );
-    }
+    // Direct access — no authentication required for launch links
 
     // Get all active KPIs for the seller's company
     const kpis = await prisma.kpi.findMany({

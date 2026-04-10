@@ -6,7 +6,6 @@ import {
   Loader2,
   AlertCircle,
   Send,
-  LogIn,
   Plus,
   Trash2,
   Users,
@@ -183,16 +182,7 @@ export default function LaunchPage({
 }) {
   const { token } = use(params);
 
-  // Auth state
-  const [authEmail, setAuthEmail] = useState("");
-  const [authCode, setAuthCode] = useState("");
-  const [authenticated, setAuthenticated] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [sellerPreview, setSellerPreview] = useState<{
-    name: string;
-    teamName: string | null;
-  } | null>(null);
+  const [loading, setLoading] = useState(true);
   const [invalidLink, setInvalidLink] = useState(false);
 
   // Form state
@@ -209,110 +199,41 @@ export default function LaunchPage({
   // Per-KPI entries for detailed mode
   const [kpiEntries, setKpiEntries] = useState<Record<string, KpiEntry>>({});
 
-  // Store credentials for client fetching
-  const [storedEmail, setStoredEmail] = useState("");
-  const [storedCode, setStoredCode] = useState("");
-
-  // Initial load: check if link is valid and get seller name
-  const fetchPreview = useCallback(async () => {
+  // Initial load: fetch launch data and clients directly (no auth needed)
+  const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/launch/${token}`);
-      const json = await res.json();
-      if (json.success && json.data.requiresAuth) {
-        setSellerPreview(json.data.seller);
-      } else if (json.success && !json.data.requiresAuth) {
-        setData(json.data);
-        setAuthenticated(true);
-      } else if (!json.success) {
+      const [launchRes, clientsRes] = await Promise.all([
+        fetch(`/api/launch/${token}`),
+        fetch(`/api/launch/${token}/clients`),
+      ]);
+      const [launchJson, clientsJson] = await Promise.all([
+        launchRes.json(),
+        clientsRes.json(),
+      ]);
+      if (launchJson.success) {
+        setData(launchJson.data);
+      } else {
         setInvalidLink(true);
+      }
+      if (clientsJson.success) {
+        setClients(clientsJson.data);
       }
     } catch {
       setInvalidLink(true);
     } finally {
-      setAuthLoading(false);
+      setLoading(false);
     }
   }, [token]);
 
   useEffect(() => {
-    fetchPreview();
-  }, [fetchPreview]);
-
-  // Fetch clients after authentication
-  const fetchClients = useCallback(async (email: string, code: string) => {
-    try {
-      const searchParams = new URLSearchParams({
-        email: email.trim(),
-        accessCode: code.trim(),
-      });
-      const res = await fetch(`/api/launch/${token}/clients?${searchParams}`);
-      const json = await res.json();
-      if (json.success) {
-        setClients(json.data);
-      }
-    } catch {
-      // Silently fail — clients are optional
-    }
-  }, [token]);
-
-  // Authenticate with email + code
-  async function handleAuth() {
-    if (!authEmail.trim() || !authCode.trim()) {
-      setAuthError("Preencha o e-mail e o código de acesso");
-      return;
-    }
-
-    setAuthError(null);
-    setAuthLoading(true);
-
-    try {
-      const searchParams = new URLSearchParams({
-        email: authEmail.trim(),
-        accessCode: authCode.trim(),
-      });
-      const res = await fetch(`/api/launch/${token}?${searchParams}`);
-      const json = await res.json();
-
-      if (json.success && !json.data.requiresAuth) {
-        setData(json.data);
-        setAuthenticated(true);
-        setStoredEmail(authEmail.trim());
-        setStoredCode(authCode.trim());
-        // Fetch clients after successful auth
-        fetchClients(authEmail.trim(), authCode.trim());
-      } else {
-        setAuthError(json.error?.message ?? "Credenciais inválidas");
-      }
-    } catch {
-      setAuthError("Erro de conexão. Tente novamente.");
-    } finally {
-      setAuthLoading(false);
-    }
-  }
-
-  // Fetch clients when admin bypass authenticates (no email/code needed)
-  useEffect(() => {
-    if (authenticated && data && !storedEmail) {
-      (async () => {
-        try {
-          const res = await fetch(`/api/launch/${token}/clients`);
-          const json = await res.json();
-          if (json.success) setClients(json.data);
-        } catch {
-          // Silently fail — clients are optional
-        }
-      })();
-    }
-  }, [authenticated, data, storedEmail, token]);
+    fetchData();
+  }, [fetchData]);
 
   // Refetch data
   async function refetchData() {
-    const searchParams = new URLSearchParams({
-      email: storedEmail || authEmail.trim(),
-      accessCode: storedCode || authCode.trim(),
-    });
-    const res = await fetch(`/api/launch/${token}?${searchParams}`);
+    const res = await fetch(`/api/launch/${token}`);
     const json = await res.json();
-    if (json.success && !json.data.requiresAuth) {
+    if (json.success) {
       setData(json.data);
     }
   }
@@ -435,7 +356,7 @@ export default function LaunchPage({
   }
 
   // ──────────── Initial loading ────────────
-  if (authLoading && !authenticated) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#f0f6f4] flex items-center justify-center">
         <div className="text-center">
@@ -459,107 +380,6 @@ export default function LaunchPage({
             Este link de lançamento não é válido ou o vendedor está inativo.
           </p>
         </div>
-      </div>
-    );
-  }
-
-  // ──────────── Login screen ────────────
-  if (!authenticated) {
-    return (
-      <div className="min-h-screen bg-[#f0f6f4]">
-        <header className="bg-[#112622] text-white">
-          <div className="mx-auto max-w-lg px-4 py-6">
-            <div className="flex items-center gap-3 mb-1">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-white">
-                <span className="text-sm font-bold text-[#112622]">V</span>
-              </div>
-              <span className="text-lg font-bold tracking-tight">Visus</span>
-            </div>
-            <p className="text-[#C1D9D4] text-sm mt-3">
-              Lançamento de Dados
-            </p>
-            {sellerPreview && (
-              <>
-                <h1 className="text-xl font-bold mt-1">
-                  {sellerPreview.name}
-                </h1>
-                {sellerPreview.teamName && (
-                  <p className="text-[#6D8C84] text-sm mt-0.5">
-                    {sellerPreview.teamName}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        </header>
-
-        <main className="mx-auto max-w-lg px-4 py-8">
-          <div className="rounded-2xl bg-white ring-1 ring-[#C1D9D4] p-6 space-y-5">
-            <div className="text-center">
-              <h2 className="text-lg font-semibold text-[#112622]">
-                Identificação
-              </h2>
-              <p className="text-sm text-[#6D8C84] mt-1">
-                Informe seu e-mail e código de acesso para continuar
-              </p>
-            </div>
-
-            {authError && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
-                <AlertCircle className="size-4 shrink-0 mt-0.5" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[#112622]">
-                  E-mail
-                </label>
-                <input
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAuth()}
-                  className="w-full rounded-lg border border-[#C1D9D4] bg-white px-3 py-2.5 text-sm text-[#112622] placeholder:text-[#6D8C84]/50 outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[#112622]">
-                  Código de Acesso
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: 1033BE7C"
-                  value={authCode}
-                  onChange={(e) => setAuthCode(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => e.key === "Enter" && handleAuth()}
-                  className="w-full rounded-lg border border-[#C1D9D4] bg-white px-3 py-2.5 text-sm font-mono text-[#112622] placeholder:text-[#6D8C84]/50 outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors uppercase"
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={handleAuth}
-              disabled={authLoading}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#112622] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#214037] disabled:opacity-50"
-            >
-              {authLoading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <LogIn className="size-4" />
-              )}
-              {authLoading ? "Verificando..." : "Entrar"}
-            </button>
-          </div>
-        </main>
-
-        <footer className="mx-auto max-w-lg px-4 pb-8 text-center">
-          <p className="text-xs text-[#6D8C84]">
-            Visus Dashboard -- Lançamento de Dados
-          </p>
-        </footer>
       </div>
     );
   }

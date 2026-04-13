@@ -8,20 +8,19 @@ import { Prisma } from "@prisma/client";
 // Helpers: date ranges for periodicity checks
 // ────────────────────────────────────────────────────────────
 
-function todayRange() {
-  const start = new Date();
+function dayRange(base: Date) {
+  const start = new Date(base);
   start.setHours(0, 0, 0, 0);
-  const end = new Date();
+  const end = new Date(base);
   end.setHours(23, 59, 59, 999);
   return { start, end };
 }
 
-function thisWeekRange() {
-  const now = new Date();
-  const day = now.getDay();
+function weekRange(base: Date) {
+  const day = base.getDay();
   const diff = day === 0 ? 6 : day - 1; // Monday-based week
-  const start = new Date(now);
-  start.setDate(now.getDate() - diff);
+  const start = new Date(base);
+  start.setDate(base.getDate() - diff);
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
@@ -29,25 +28,25 @@ function thisWeekRange() {
   return { start, end };
 }
 
-function thisMonthRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+function monthRange(base: Date) {
+  const start = new Date(base.getFullYear(), base.getMonth(), 1);
+  const end = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999);
   return { start, end };
 }
 
-function getDateRange(periodicity: string) {
+function getDateRange(periodicity: string, base?: Date) {
+  const d = base ?? new Date();
   switch (periodicity) {
     case "DAILY":
-      return todayRange();
+      return dayRange(d);
     case "WEEKLY":
-      return thisWeekRange();
+      return weekRange(d);
     case "MONTHLY":
-      return thisMonthRange();
+      return monthRange(d);
     case "NONE":
       return null;
     default:
-      return todayRange();
+      return dayRange(d);
   }
 }
 
@@ -63,8 +62,7 @@ export async function GET(
   try {
     const { token } = await params;
     const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-    const accessCode = searchParams.get("accessCode");
+    const dateParam = searchParams.get("date");
 
     const seller = await prisma.seller.findUnique({
       where: { accessToken: token },
@@ -87,6 +85,7 @@ export async function GET(
     }
 
     // Direct access — no authentication required for launch links
+    const baseDate = dateParam ? new Date(dateParam + "T12:00:00") : new Date();
 
     // Get all active KPIs for the seller's company
     const kpis = await prisma.kpi.findMany({
@@ -123,7 +122,7 @@ export async function GET(
     const kpisWithStatus = await Promise.all(
       kpis.map(async (kpi) => {
         const frequency = scheduleMap.get(kpi.id) ?? kpi.periodicity;
-        const range = getDateRange(frequency);
+        const range = getDateRange(frequency, baseDate);
 
         if (!range) {
           return {
@@ -174,7 +173,7 @@ export async function GET(
           teamName: seller.team?.name ?? null,
         },
         kpis: kpisWithStatus,
-        currentDate: new Date().toISOString().split("T")[0],
+        currentDate: baseDate.toISOString().split("T")[0],
       },
     });
   } catch (error) {
@@ -211,7 +210,9 @@ export async function POST(
     }
 
     const body = await request.json();
-    const parsed = entryBatchCreateSchema.safeParse(body);
+    // Support both new format { entryDate, entries } and legacy array format
+    const payload = Array.isArray(body) ? { entries: body } : body;
+    const parsed = entryBatchCreateSchema.safeParse(payload);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -220,10 +221,8 @@ export async function POST(
       );
     }
 
-    const entries = parsed.data;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayISO = today.toISOString().split("T")[0];
+    const { entries, entryDate: customDate } = parsed.data;
+    const targetDate = customDate ?? new Date().toISOString().split("T")[0];
 
     // Validate KPIs exist and belong to the company
     const kpiIds = [...new Set(entries.map((e) => e.kpiId))];
@@ -258,7 +257,7 @@ export async function POST(
     for (const kpiId of kpiIds) {
       const kpi = kpiMap.get(kpiId)!;
       const frequency = postScheduleMap.get(kpiId) ?? kpi.periodicity;
-      const range = getDateRange(frequency);
+      const range = getDateRange(frequency, new Date(targetDate + "T12:00:00"));
       if (!range) continue;
       const existing = await prisma.entry.findFirst({
         where: {
@@ -303,7 +302,7 @@ export async function POST(
               sellerId: seller.id,
               clientId: entry.clientId || null,
               value: entry.value,
-              entryDate: new Date(todayISO),
+              entryDate: new Date(targetDate),
               notes: entry.notes ?? null,
             },
           });

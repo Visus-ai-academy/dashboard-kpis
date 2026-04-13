@@ -15,14 +15,17 @@ export const entryCreateSchema = z.object({
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").optional().nullable(),
 });
 
-export const entryBatchCreateSchema = z.array(
-  z.object({
-    kpiId: z.string().min(1, "ID do KPI é obrigatório"),
-    value: z.number().min(0, "Valor deve ser maior ou igual a 0"),
-    notes: z.string().max(500, "Observações devem ter no máximo 500 caracteres").optional(),
-    clientId: z.string().optional(),
-  })
-).min(1, "Pelo menos um lançamento é obrigatório");
+export const entryBatchCreateSchema = z.object({
+  entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD").optional(),
+  entries: z.array(
+    z.object({
+      kpiId: z.string().min(1, "ID do KPI é obrigatório"),
+      value: z.number().min(0, "Valor deve ser maior ou igual a 0"),
+      notes: z.string().max(500, "Observações devem ter no máximo 500 caracteres").optional(),
+      clientId: z.string().optional(),
+    })
+  ).min(1, "Pelo menos um lançamento é obrigatório"),
+});
 
 // Legacy schema kept for backward compatibility with /api/entries
 export const entryMultiCreateSchema = z.array(

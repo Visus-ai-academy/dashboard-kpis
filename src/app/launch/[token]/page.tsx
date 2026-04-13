@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Search,
   X,
+  CalendarDays,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -184,6 +185,7 @@ export default function LaunchPage({
 
   const [loading, setLoading] = useState(true);
   const [invalidLink, setInvalidLink] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
 
   // Form state
   const [error, setError] = useState<string | null>(null);
@@ -203,7 +205,7 @@ export default function LaunchPage({
   const fetchData = useCallback(async () => {
     try {
       const [launchRes, clientsRes] = await Promise.all([
-        fetch(`/api/launch/${token}`),
+        fetch(`/api/launch/${token}?date=${selectedDate}`),
         fetch(`/api/launch/${token}/clients`),
       ]);
       const [launchJson, clientsJson] = await Promise.all([
@@ -223,7 +225,7 @@ export default function LaunchPage({
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, selectedDate]);
 
   useEffect(() => {
     fetchData();
@@ -231,7 +233,7 @@ export default function LaunchPage({
 
   // Refetch data
   async function refetchData() {
-    const res = await fetch(`/api/launch/${token}`);
+    const res = await fetch(`/api/launch/${token}?date=${selectedDate}`);
     const json = await res.json();
     if (json.success) {
       setData(json.data);
@@ -340,7 +342,7 @@ export default function LaunchPage({
       const res = await fetch(`/api/launch/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ entryDate: selectedDate, entries: payload }),
       });
       const json = await res.json();
       if (json.success) {
@@ -427,15 +429,6 @@ export default function LaunchPage({
   // ──────────── Main form ────────────
   const unfilled = data.kpis.filter((k) => !k.filled);
   const filled = data.kpis.filter((k) => k.filled);
-  const formattedDate = new Date(
-    data.currentDate + "T12:00:00"
-  ).toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-
   return (
     <div className="min-h-screen bg-[#f0f6f4]">
       {/* Header */}
@@ -456,9 +449,21 @@ export default function LaunchPage({
               {data.seller.teamName}
             </p>
           )}
-          <p className="text-[#C1D9D4] text-xs mt-2 capitalize">
-            {formattedDate}
-          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <CalendarDays className="size-3.5 text-[#C1D9D4]" />
+            <input
+              type="date"
+              value={selectedDate}
+              max={new Date().toISOString().split("T")[0]}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setSubmitted(false);
+                setQuickValues({});
+                setKpiEntries({});
+              }}
+              className="bg-transparent border border-[#C1D9D4]/30 rounded-md px-2 py-0.5 text-xs text-[#C1D9D4] outline-none focus:border-[#C1D9D4] transition-colors [color-scheme:dark]"
+            />
+          </div>
         </div>
       </header>
 

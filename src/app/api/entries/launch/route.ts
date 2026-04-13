@@ -44,11 +44,11 @@ function getDateRange(periodicity: string, base?: Date) {
     case "WEEKLY":
       return weekRange(d);
     case "MONTHLY":
-      return thisMonthRange();
+      return monthRange(d);
     case "NONE":
       return null;
     default:
-      return todayRange();
+      return dayRange(d);
   }
 }
 

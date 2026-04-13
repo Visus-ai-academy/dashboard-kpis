@@ -323,22 +323,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create all entries in a transaction and calculate points
+    // Group entries by kpiId
+    const groupedByKpi = new Map<string, typeof entries>();
+    for (const entry of entries) {
+      const group = groupedByKpi.get(entry.kpiId) ?? [];
+      group.push(entry);
+      groupedByKpi.set(entry.kpiId, group);
+    }
+
+    // Create all entries in a transaction
     const createdEntries = await prisma.$transaction(async (tx) => {
       const created = [];
-
-      // Group entries by kpiId for points calculation
-      const groupedByKpi = new Map<string, typeof entries>();
-      for (const entry of entries) {
-        const group = groupedByKpi.get(entry.kpiId) ?? [];
-        group.push(entry);
-        groupedByKpi.set(entry.kpiId, group);
-      }
-
       for (const [kpiId, kpiEntries] of groupedByKpi) {
-        const kpi = kpiMap.get(kpiId)!;
-        let totalValueForPoints = 0;
-
         for (const entry of kpiEntries) {
           const newEntry = await tx.entry.create({
             data: {
@@ -352,19 +348,20 @@ export async function POST(request: NextRequest) {
             },
           });
           created.push(newEntry);
-
-          if (kpi.type === "MONETARY") {
-            totalValueForPoints += entry.value;
-          } else {
-            totalValueForPoints += entry.value;
-          }
         }
-
-        // Calculate gamification points once per KPI group
-        await calculatePoints(tx, sellerId, kpiId, totalValueForPoints, companyId);
       }
       return created;
     });
+
+    // Calculate points after transaction (non-blocking)
+    for (const [kpiId, kpiEntries] of groupedByKpi) {
+      const totalValue = kpiEntries.reduce((sum, e) => sum + e.value, 0);
+      try {
+        await calculatePoints(prisma as unknown as Prisma.TransactionClient, sellerId, kpiId, totalValue, companyId);
+      } catch (pointsError) {
+        console.error("Points calculation error (non-blocking):", pointsError);
+      }
+    }
 
     return NextResponse.json(
       {

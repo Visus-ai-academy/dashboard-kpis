@@ -266,7 +266,7 @@ export default function LancamentoPage() {
         const quick = quickValues[kpi.id];
         if (!quick) continue;
         const numValue = parseFloat(quick.value);
-        if (isNaN(numValue) || numValue <= 0) continue;
+        if (isNaN(numValue) || numValue < 0) continue;
         payload.push({
           kpiId: kpi.id,
           value: numValue,
@@ -277,7 +277,7 @@ export default function LancamentoPage() {
         const rows = getRows(kpi.id);
         for (const row of rows) {
           const numValue = typeof row.value === "string" ? parseFloat(row.value) : row.value;
-          if (isNaN(numValue) || numValue <= 0) continue;
+          if (isNaN(numValue) || numValue < 0) continue;
           payload.push({
             kpiId: kpi.id,
             value: numValue,

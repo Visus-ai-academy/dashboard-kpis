@@ -20,14 +20,26 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const result = await signIn("admin-credentials", {
+      const adminResult = await signIn("admin-credentials", {
         email,
         password,
         redirect: false,
       });
 
-      if (!result?.error) {
+      if (!adminResult?.error) {
         router.push(callbackUrl);
+        router.refresh();
+        return;
+      }
+
+      const sellerResult = await signIn("seller-credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (!sellerResult?.error) {
+        router.push("/lancamento");
         router.refresh();
         return;
       }

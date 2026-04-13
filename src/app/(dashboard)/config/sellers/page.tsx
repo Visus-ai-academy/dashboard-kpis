@@ -8,7 +8,6 @@ import {
   Pencil,
   Trash2,
   Copy,
-  RefreshCw,
   ExternalLink,
   Eye,
   EyeOff,
@@ -39,13 +38,6 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Team {

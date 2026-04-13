@@ -291,7 +291,7 @@ export default function LaunchPage({
 
         const numValue = parseFloat(quick.value);
 
-        if (isNaN(numValue) || numValue <= 0) {
+        if (isNaN(numValue) || numValue < 0) {
           if (kpi.isRequired) {
             setError(`Informe um valor válido para "${kpi.name}"`);
             return;
@@ -311,7 +311,7 @@ export default function LaunchPage({
 
         for (const row of rows) {
           const numValue = typeof row.value === "string" ? parseFloat(row.value) : row.value;
-          if (isNaN(numValue) || numValue <= 0) continue;
+          if (isNaN(numValue) || numValue < 0) continue;
           hasValidRow = true;
           payload.push({
             kpiId: kpi.id,

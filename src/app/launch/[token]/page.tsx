@@ -11,9 +11,11 @@ import {
   Users,
   Hash,
   ChevronDown,
+  ChevronUp,
   Search,
   X,
   CalendarDays,
+  User,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -24,6 +26,13 @@ import {
 // Types
 // ────────────────────────────────────────────────────────────
 
+interface EntryDetail {
+  id: string;
+  value: number;
+  notes: string | null;
+  clientName: string | null;
+}
+
 interface KpiItem {
   id: string;
   name: string;
@@ -33,6 +42,7 @@ interface KpiItem {
   isRequired: boolean;
   filled: boolean;
   existingValue: number | null;
+  entries?: EntryDetail[];
 }
 
 interface ClientItem {
@@ -196,6 +206,7 @@ export default function LaunchPage({
 
   // Per-KPI mode: "quick" (single number) or "detailed" (per client)
   const [kpiMode, setKpiMode] = useState<Record<string, "quick" | "detailed">>({});
+  const [expandedFilled, setExpandedFilled] = useState<Record<string, boolean>>({});
   // Quick mode values
   const [quickValues, setQuickValues] = useState<Record<string, { value: string; notes: string; clientId: string }>>({});
   // Per-KPI entries for detailed mode
@@ -307,7 +318,7 @@ export default function LaunchPage({
           notes: quick.notes?.trim() || undefined,
           clientId: quick.clientId?.trim() || undefined,
         });
-      } else {
+      } else if (mode === "detailed") {
         const rows = getRows(kpi.id);
         let hasValidRow = false;
 
@@ -460,6 +471,7 @@ export default function LaunchPage({
                 setSubmitted(false);
                 setQuickValues({});
                 setKpiEntries({});
+                  setExpandedFilled({});
               }}
               className="bg-transparent border border-[#C1D9D4]/30 rounded-md px-2 py-0.5 text-xs text-[#C1D9D4] outline-none focus:border-[#C1D9D4] transition-colors [color-scheme:dark]"
             />
@@ -483,36 +495,79 @@ export default function LaunchPage({
             <h2 className="text-sm font-semibold text-[#112622]">
               Já preenchidos neste período
             </h2>
-            {filled.map((kpi) => (
-              <div
-                key={kpi.id}
-                className="rounded-xl bg-white ring-1 ring-[#C1D9D4] p-4 opacity-70"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-[#112622]">
-                      {kpi.name}
-                    </p>
-                    <p className="text-xs text-[#6D8C84]">
-                      {PERIODICITY_LABELS[kpi.periodicity] ?? kpi.periodicity}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-[#34594F]">
-                      {kpi.existingValue !== null
-                        ? isMonetaryKpi(kpi.type)
-                          ? formatCurrency(kpi.existingValue)
-                          : formatNumber(kpi.existingValue)
-                        : "\u2014"}
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#C1D9D4] px-2.5 py-0.5 text-xs font-medium text-[#112622]">
-                      <CheckCircle2 className="size-3" />
-                      Preenchido
-                    </span>
-                  </div>
+            {filled.map((kpi) => {
+              const isExpanded = expandedFilled[kpi.id] ?? false;
+              const entries = kpi.entries ?? [];
+              const hasDetails = entries.length > 0;
+              const monetary = isMonetaryKpi(kpi.type);
+
+              return (
+                <div
+                  key={kpi.id}
+                  className="rounded-xl bg-white ring-1 ring-[#C1D9D4] overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => hasDetails && setExpandedFilled((p) => ({ ...p, [kpi.id]: !isExpanded }))}
+                    className={`w-full p-4 flex items-center justify-between ${hasDetails ? "cursor-pointer hover:bg-[#f8fbfa]" : "cursor-default opacity-70"} transition-colors`}
+                  >
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-[#112622]">
+                        {kpi.name}
+                      </p>
+                      <p className="text-xs text-[#6D8C84]">
+                        {PERIODICITY_LABELS[kpi.periodicity] ?? kpi.periodicity}
+                        {hasDetails && (
+                          <span className="ml-1">— {entries.length} {entries.length === 1 ? "entrada" : "entradas"}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-[#34594F]">
+                        {kpi.existingValue !== null
+                          ? monetary
+                            ? formatCurrency(kpi.existingValue)
+                            : formatNumber(kpi.existingValue)
+                          : "\u2014"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#C1D9D4] px-2.5 py-0.5 text-xs font-medium text-[#112622]">
+                        <CheckCircle2 className="size-3" />
+                        Preenchido
+                      </span>
+                      {hasDetails && (
+                        isExpanded ? <ChevronUp className="size-4 text-[#6D8C84]" /> : <ChevronDown className="size-4 text-[#6D8C84]" />
+                      )}
+                    </div>
+                  </button>
+
+                  {isExpanded && entries.length > 0 && (
+                    <div className="border-t border-[#C1D9D4]/50 px-4 py-3 space-y-2 bg-[#f8fbfa]">
+                      {entries.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between py-1.5 text-xs">
+                          <div className="flex items-center gap-2 text-[#34594F]">
+                            {entry.clientName && (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-[#E8F0EE] px-2 py-0.5 font-medium">
+                                <User className="size-3" />
+                                {entry.clientName}
+                              </span>
+                            )}
+                            {entry.notes && (
+                              <span className="text-[#6D8C84] italic">{entry.notes}</span>
+                            )}
+                            {!entry.clientName && !entry.notes && (
+                              <span className="text-[#6D8C84]">Lançamento</span>
+                            )}
+                          </div>
+                          <span className="font-semibold text-[#112622]">
+                            {monetary ? formatCurrency(entry.value) : formatNumber(entry.value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -533,6 +588,7 @@ export default function LaunchPage({
                 const v = typeof r.value === "string" ? parseFloat(r.value) : r.value;
                 return sum + (isNaN(v) ? 0 : v);
               }, 0);
+
 
               return (
                 <div

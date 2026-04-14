@@ -142,24 +142,32 @@ export async function GET(
               lte: range.end,
             },
           },
-          select: { id: true, value: true },
+          select: {
+            id: true,
+            value: true,
+            notes: true,
+            client: { select: { id: true, name: true } },
+          },
         });
 
         const hasEntries = existingEntries.length > 0;
-        let existingValue: number | null = null;
-        if (hasEntries) {
-          if (kpi.type === "MONETARY") {
-            existingValue = existingEntries.reduce((sum, e) => sum + toNumber(e.value), 0);
-          } else {
-            existingValue = existingEntries.reduce((sum, e) => sum + toNumber(e.value), 0);
-          }
-        }
+        const existingValue = hasEntries
+          ? existingEntries.reduce((sum, e) => sum + toNumber(e.value), 0)
+          : null;
 
         return {
           ...kpi,
           targetValue: toNumber(kpi.targetValue),
           filled: hasEntries,
           existingValue,
+          entries: hasEntries
+            ? existingEntries.map((e) => ({
+                id: e.id,
+                value: toNumber(e.value),
+                notes: e.notes,
+                clientName: e.client?.name ?? null,
+              }))
+            : [],
         };
       })
     );

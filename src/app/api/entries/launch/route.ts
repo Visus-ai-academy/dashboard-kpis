@@ -323,37 +323,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Group entries by kpiId
+    // Create all entries with createMany (single query, no transaction timeout)
+    const entryData = entries.map((entry) => ({
+      companyId,
+      kpiId: entry.kpiId,
+      sellerId,
+      clientId: entry.clientId || null,
+      value: entry.value,
+      entryDate: new Date(targetDate + "T12:00:00"),
+      notes: entry.notes ?? null,
+    }));
+
+    await prisma.entry.createMany({ data: entryData });
+
+    // Fetch created entries for response
+    const createdEntries = await prisma.entry.findMany({
+      where: {
+        companyId,
+        sellerId,
+        entryDate: new Date(targetDate + "T12:00:00"),
+        kpiId: { in: [...new Set(entries.map((e) => e.kpiId))] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: entries.length,
+    });
+
+    // Calculate points (non-blocking)
     const groupedByKpi = new Map<string, typeof entries>();
     for (const entry of entries) {
       const group = groupedByKpi.get(entry.kpiId) ?? [];
       group.push(entry);
       groupedByKpi.set(entry.kpiId, group);
     }
-
-    // Create all entries in a transaction
-    const createdEntries = await prisma.$transaction(async (tx) => {
-      const created = [];
-      for (const [kpiId, kpiEntries] of groupedByKpi) {
-        for (const entry of kpiEntries) {
-          const newEntry = await tx.entry.create({
-            data: {
-              companyId,
-              kpiId,
-              sellerId,
-              clientId: entry.clientId || null,
-              value: entry.value,
-              entryDate: new Date(targetDate),
-              notes: entry.notes ?? null,
-            },
-          });
-          created.push(newEntry);
-        }
-      }
-      return created;
-    });
-
-    // Calculate points after transaction (non-blocking)
     for (const [kpiId, kpiEntries] of groupedByKpi) {
       const totalValue = kpiEntries.reduce((sum, e) => sum + e.value, 0);
       try {

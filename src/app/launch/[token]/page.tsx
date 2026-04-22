@@ -15,6 +15,7 @@ import {
   Search,
   X,
   CalendarDays,
+  ListChecks,
   User,
 } from "lucide-react";
 import {
@@ -205,7 +206,9 @@ export default function LaunchPage({
   const [clients, setClients] = useState<ClientItem[]>([]);
 
   // Per-KPI mode: "quick" (single number) or "detailed" (per client)
-  const [kpiMode, setKpiMode] = useState<Record<string, "quick" | "detailed">>({});
+  const [kpiMode, setKpiMode] = useState<Record<string, "quick" | "detailed" | "multi">>({});
+  // Multi-select mode values
+  const [multiValues, setMultiValues] = useState<Record<string, { selectedIds: string[]; defaultValue: string; notes: string; search: string; othersNames: string }>>({});
   const [expandedFilled, setExpandedFilled] = useState<Record<string, boolean>>({});
   // Quick mode values
   const [quickValues, setQuickValues] = useState<Record<string, { value: string; notes: string; clientId: string }>>({});
@@ -338,6 +341,43 @@ export default function LaunchPage({
           setError(`Informe pelo menos uma entrada válida para "${kpi.name}"`);
           return;
         }
+      } else if (mode === "multi") {
+        const multi = multiValues[kpi.id] ?? { selectedIds: [], defaultValue: "1", notes: "", search: "", othersNames: "" };
+        const others = multi.othersNames.split(",").map((n) => n.trim()).filter(Boolean);
+        const hasSelections = multi.selectedIds.length > 0 || others.length > 0;
+
+        if (!hasSelections) {
+          if (kpi.isRequired) {
+            setError(`Selecione pelo menos um cliente para "${kpi.name}"`);
+            return;
+          }
+          continue;
+        }
+
+        const numValue = parseFloat(multi.defaultValue || "1");
+        if (isNaN(numValue) || numValue < 0) {
+          setError(`Informe um valor válido para "${kpi.name}"`);
+          return;
+        }
+
+        // Entries for selected (registered) clients
+        for (const clientId of multi.selectedIds) {
+          payload.push({
+            kpiId: kpi.id,
+            value: numValue,
+            notes: multi.notes?.trim() || undefined,
+            clientId,
+          });
+        }
+
+        // Entries for unregistered clients (each name becomes a separate entry)
+        for (const name of others) {
+          payload.push({
+            kpiId: kpi.id,
+            value: numValue,
+            notes: name,
+          });
+        }
       }
     }
 
@@ -416,6 +456,7 @@ export default function LaunchPage({
               setSubmitted(false);
               setKpiEntries({});
               setQuickValues({});
+              setMultiValues({});
               setKpiMode({});
               refetchData();
             }}
@@ -471,7 +512,8 @@ export default function LaunchPage({
                 setSubmitted(false);
                 setQuickValues({});
                 setKpiEntries({});
-                  setExpandedFilled({});
+                setMultiValues({});
+                setExpandedFilled({});
               }}
               className="bg-transparent border border-[#C1D9D4]/30 rounded-md px-2 py-0.5 text-xs text-[#C1D9D4] outline-none focus:border-[#C1D9D4] transition-colors [color-scheme:dark]"
             />
@@ -583,6 +625,11 @@ export default function LaunchPage({
               const rows = getRows(kpi.id);
               const monetary = isMonetaryKpi(kpi.type);
               const quick = quickValues[kpi.id] ?? { value: "", notes: "", clientId: "" };
+              const multi = multiValues[kpi.id] ?? { selectedIds: [], defaultValue: "1", notes: "", search: "", othersNames: "" };
+              const othersNames = multi.othersNames.split(",").map((n) => n.trim()).filter(Boolean);
+              const multiCount = multi.selectedIds.length + othersNames.length;
+              const multiNumVal = parseFloat(multi.defaultValue || "1");
+              const totalMulti = isNaN(multiNumVal) ? 0 : multiCount * multiNumVal;
 
               const totalDetailed = rows.reduce((sum, r) => {
                 const v = typeof r.value === "string" ? parseFloat(r.value) : r.value;
@@ -626,6 +673,14 @@ export default function LaunchPage({
                             </p>
                           </div>
                         )}
+                        {mode === "multi" && multiCount > 0 && (
+                          <div className="text-right mr-2">
+                            <p className="text-[10px] text-[#6D8C84]">{multiCount} clientes</p>
+                            <p className="text-sm font-bold text-[#112622]">
+                              {monetary ? formatCurrency(totalMulti) : formatNumber(totalMulti)}
+                            </p>
+                          </div>
+                        )}
                         {/* Mode toggle */}
                         <div className="flex items-center rounded-md border border-[#C1D9D4] overflow-hidden">
                           <button
@@ -645,6 +700,15 @@ export default function LaunchPage({
                           >
                             <Users className="size-3" />
                             Por Cliente
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setKpiMode((p) => ({ ...p, [kpi.id]: "multi" }))}
+                            className={`px-2 py-1 text-[10px] flex items-center gap-1 transition-colors ${mode === "multi" ? "bg-[#112622] text-white" : "text-[#6D8C84] hover:bg-[#C1D9D4]/20"}`}
+                            title="Seleção múltipla"
+                          >
+                            <ListChecks className="size-3" />
+                            Múltiplo
                           </button>
                         </div>
                       </div>
@@ -683,7 +747,7 @@ export default function LaunchPage({
                           className="w-full rounded-lg border border-[#C1D9D4] bg-white px-3 py-1.5 text-xs text-[#112622] placeholder:text-[#6D8C84]/50 outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
                         />
                       </>
-                    ) : (
+                    ) : mode === "detailed" ? (
                       /* -- Detailed mode: per client rows -- */
                       <>
                         {rows.map((row, index) => (
@@ -737,6 +801,129 @@ export default function LaunchPage({
                           <Plus className="size-3.5" />
                           Adicionar Entrada
                         </button>
+                      </>
+                    ) : (
+                      /* -- Multi-select mode -- */
+                      <>
+                        <div className="flex items-center gap-2">
+                          {monetary && (
+                            <span className="text-sm font-medium text-[#6D8C84]">R$</span>
+                          )}
+                          <input
+                            type="number"
+                            min="0"
+                            step={monetary ? "0.01" : "1"}
+                            placeholder="1"
+                            value={multi.defaultValue}
+                            onChange={(e) => setMultiValues((p) => ({ ...p, [kpi.id]: { ...multi, defaultValue: e.target.value } }))}
+                            className="w-24 rounded-lg border border-[#C1D9D4] bg-white px-3 py-2 text-sm text-[#112622] placeholder:text-[#6D8C84]/50 outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
+                          />
+                          <span className="text-xs text-[#6D8C84]">por cliente</span>
+                        </div>
+
+                        <input
+                          type="text"
+                          placeholder="Observações para todos (opcional)"
+                          maxLength={500}
+                          value={multi.notes}
+                          onChange={(e) => setMultiValues((p) => ({ ...p, [kpi.id]: { ...multi, notes: e.target.value } }))}
+                          className="w-full rounded-lg border border-[#C1D9D4] bg-white px-3 py-1.5 text-xs text-[#112622] placeholder:text-[#6D8C84]/50 outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
+                        />
+
+                        {clients.length > 5 && (
+                          <div className="flex items-center gap-2 rounded-lg border border-[#C1D9D4]/50 bg-[#f8fbfa] px-3 py-2">
+                            <Search className="size-3.5 text-[#6D8C84]" />
+                            <input
+                              type="text"
+                              placeholder="Buscar cliente..."
+                              value={multi.search}
+                              onChange={(e) => setMultiValues((p) => ({ ...p, [kpi.id]: { ...multi, search: e.target.value } }))}
+                              className="flex-1 bg-transparent text-xs text-[#112622] placeholder:text-[#6D8C84]/50 outline-none"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-medium text-[#6D8C84]">
+                            {multi.selectedIds.length}/{clients.length} selecionados
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allIds = clients.map((c) => c.id);
+                              const allSelected = multi.selectedIds.length === clients.length;
+                              setMultiValues((p) => ({
+                                ...p,
+                                [kpi.id]: { ...multi, selectedIds: allSelected ? [] : allIds },
+                              }));
+                            }}
+                            className="text-[10px] font-medium text-[#34594F] hover:text-[#112622] transition-colors"
+                          >
+                            {multi.selectedIds.length === clients.length ? "Desmarcar todos" : "Selecionar todos"}
+                          </button>
+                        </div>
+
+                        <div className="max-h-56 overflow-y-auto rounded-lg border border-[#C1D9D4]/50 divide-y divide-[#C1D9D4]/30">
+                          {(multi.search
+                            ? clients.filter((c) => c.name.toLowerCase().includes(multi.search.toLowerCase()))
+                            : clients
+                          ).map((client) => {
+                            const isSelected = multi.selectedIds.includes(client.id);
+                            return (
+                              <label
+                                key={client.id}
+                                className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                                  isSelected ? "bg-[#E8F0EE]" : "hover:bg-[#f8fbfa]"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    const ids = isSelected
+                                      ? multi.selectedIds.filter((id) => id !== client.id)
+                                      : [...multi.selectedIds, client.id];
+                                    setMultiValues((p) => ({ ...p, [kpi.id]: { ...multi, selectedIds: ids } }));
+                                  }}
+                                  className="accent-[#34594F]"
+                                />
+                                <span className={`text-xs ${isSelected ? "font-medium text-[#112622]" : "text-[#34594F]"}`}>
+                                  {client.name}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+
+                        {/* Clientes não cadastrados */}
+                        <div className="rounded-lg border border-dashed border-[#C1D9D4] p-3 space-y-2 bg-[#f8fbfa]">
+                          <label className="text-[10px] font-medium text-[#6D8C84]">
+                            Clientes não cadastrados (separar por vírgula)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Ex: CRWANDERLEY, h.santacatarina"
+                            value={multi.othersNames}
+                            onChange={(e) => setMultiValues((p) => ({ ...p, [kpi.id]: { ...multi, othersNames: e.target.value } }))}
+                            className="w-full rounded-lg border border-[#C1D9D4] bg-white px-3 py-1.5 text-xs text-[#112622] placeholder:text-[#6D8C84]/50 outline-none focus:border-[#34594F] focus:ring-2 focus:ring-[#34594F]/20 transition-colors"
+                          />
+                          {othersNames.length > 0 && (
+                            <p className="text-[10px] text-[#6D8C84]">{othersNames.length} cliente{othersNames.length !== 1 ? "s" : ""} não cadastrado{othersNames.length !== 1 ? "s" : ""}</p>
+                          )}
+                        </div>
+
+                        {multiCount > 0 && (
+                          <div className="rounded-lg bg-[#E8F0EE] px-3 py-2 text-xs text-[#34594F]">
+                            Total: {multi.selectedIds.length} cadastrado{multi.selectedIds.length !== 1 ? "s" : ""}
+                            {othersNames.length > 0 && (
+                              <> + {othersNames.length} não cadastrado{othersNames.length !== 1 ? "s" : ""}</>
+                            )}
+                            {" × "}{multi.defaultValue || "1"} = {" "}
+                            <span className="font-semibold">
+                              {monetary ? formatCurrency(totalMulti) : formatNumber(totalMulti)}
+                            </span>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>

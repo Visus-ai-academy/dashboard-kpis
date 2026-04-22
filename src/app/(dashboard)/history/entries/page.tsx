@@ -550,8 +550,16 @@ export default function EntriesHistoryPage() {
                   <TableCell className="text-muted-foreground text-xs">
                     {formatDateTime(entry.createdAt)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs max-w-[150px] truncate">
-                    {entry.notes ?? "—"}
+                  <TableCell className="text-muted-foreground text-xs max-w-[200px]">
+                    {entry.notes ? (
+                      <div className="group relative">
+                        <span className="block truncate">{entry.notes}</span>
+                        <div className="invisible group-hover:visible absolute z-50 bottom-full left-0 mb-2 w-72 rounded-lg bg-[#112622] text-white text-xs px-3 py-2 shadow-lg leading-relaxed whitespace-normal">
+                          {entry.notes}
+                          <div className="absolute top-full left-4 border-4 border-transparent border-t-[#112622]" />
+                        </div>
+                      </div>
+                    ) : "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">

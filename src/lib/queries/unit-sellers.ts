@@ -10,10 +10,15 @@ export async function getSellerIdsByUnit(
 ): Promise<string[] | undefined> {
   if (!unitId) return undefined;
 
+  // Include sellers linked to the unit via team→sector,
+  // AND sellers without any team (unlinked sellers)
   const sellers = await prisma.seller.findMany({
     where: {
       companyId,
-      team: { sector: { unitId } },
+      OR: [
+        { team: { sector: { unitId } } },
+        { teamId: null },
+      ],
     },
     select: { id: true },
   });

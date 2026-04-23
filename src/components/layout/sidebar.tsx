@@ -137,6 +137,8 @@ export function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
   const isDashboardActive = pathname === "/";
   const isLancamentoActive = pathname === "/lancamento";
   const isSeller = userRole === "SELLER";
+  const isViewer = userRole === "VIEWER";
+  const showAdminSections = !isSeller && !isViewer;
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
@@ -190,7 +192,7 @@ export function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         )}
 
         {/* Admin sections */}
-        {!isSeller && (
+        {showAdminSections && (
           <div className="mt-2 flex flex-col gap-1">
             {NAV_SECTIONS.map((section) => (
               <CollapsibleSection

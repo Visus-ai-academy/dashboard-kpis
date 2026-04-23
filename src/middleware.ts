@@ -70,6 +70,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Viewer role restrictions: only dashboard + APIs
+  if (token.role === "VIEWER") {
+    if (pathname.startsWith("/config") || pathname.startsWith("/campaigns") || pathname.startsWith("/lancamento")) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  }
+
   return NextResponse.next();
 }
 

@@ -132,9 +132,11 @@ export function Header({
             <User className="size-3.5 text-primary-foreground" />
           </div>
           <span className="hidden font-medium sm:inline-block">{userName}</span>
-          <Badge variant="secondary" className="hidden sm:inline-flex">
-            {ROLE_LABELS[userRole] ?? userRole}
-          </Badge>
+          {userRole !== "VIEWER" && (
+            <Badge variant="secondary" className="hidden sm:inline-flex">
+              {ROLE_LABELS[userRole] ?? userRole}
+            </Badge>
+          )}
         </div>
         <Button
           variant="ghost"
